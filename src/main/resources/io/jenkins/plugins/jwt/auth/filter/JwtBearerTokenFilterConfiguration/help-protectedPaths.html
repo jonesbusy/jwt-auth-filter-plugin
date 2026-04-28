@@ -1,0 +1,6 @@
+<div>
+    A comma-separated list of Ant patterns that should be protected by JWT authentication. Only requests matching these patterns will check for a JWT token for authentication.
+    Non-matching endpoints will continue with standard filter-chain
+    For example, '/**/api/**' to protect all API endpoint or /*mcp/** to protect all endpoints under /mcp.
+    <p><strong>Security Note:</strong> Ensure that the specified URL patterns accurately reflect the endpoints that should be protected. Misconfiguration may lead to unintended access control issues.</p>
+</div>

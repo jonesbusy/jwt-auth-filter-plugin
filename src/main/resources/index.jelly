@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+    JWT Auth Filter Plugin provides an auth/authz filter that validate incoming JWT tokens (as Bearer token) and authenticate/authorize users based on access token content.
+</div>
