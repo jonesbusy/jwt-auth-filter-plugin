@@ -49,7 +49,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
      */
     private static final Logger LOG = LoggerFactory.getLogger(JwtBearerTokenFilter.class);
 
-    private static final String BEARER_PREFIX = "Bearer ";
+    public static final String BEARER_PREFIX = "Bearer ";
     private static final long DEFAULT_CLOCK_SKEW_SECONDS = 60;
 
     @Override
@@ -75,15 +75,14 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
 
         // Extract and validate JWT token
         String token = authHeader.substring(BEARER_PREFIX.length());
-        Authentication authentication = validateJwtToken(token);
+        boolean skipJwtValidation =
+                Boolean.TRUE.equals(httpRequest.getAttribute(JwtBearerTokenCrumbExclusion.class.getName()));
+        Authentication authentication = validateJwtToken(skipJwtValidation, token);
 
         if (authentication != null) {
 
             // Set authentication context
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // Mark request for CSRF exclusion
-            httpRequest.setAttribute(BearerTokenCrumbExclusion.class.getName(), Boolean.TRUE);
             LOG.info("JWT Bearer token authenticated user '{}' at path '{}'", authentication.getName(), requestURI);
             return false; // Continue filter chain
         }
@@ -96,7 +95,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     /**
      * Verifies the signature of a signed JWT using JWKS.
      */
-    public boolean verifyJwtSignature(SignedJWT signedJWT) {
+    public static boolean verifyJwtSignature(SignedJWT signedJWT) {
         try {
             JWSHeader header = signedJWT.getHeader();
             String keyId = header.getKeyID();
@@ -108,10 +107,30 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
                 return false;
             }
 
-            // Create verifier
-            JWSVerifier verifier = createVerifier(jwk);
+            // Reject expired token
+            JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
+            Date expirationTime = claimsSet.getExpirationTime();
+            if (expirationTime != null && expirationTime.before(new Date())) {
+                LOG.debug("JWT token has expired: {}", expirationTime);
+                return false;
+            }
+
+            // Validate issued at time (with clock skew tolerance)
+            Date issuedAt = claimsSet.getIssueTime();
+            if (issuedAt != null) {
+                long clockSkewMillis = DEFAULT_CLOCK_SKEW_SECONDS * 1000;
+                Date now = new Date();
+                if (issuedAt.getTime() > now.getTime() + clockSkewMillis) {
+                    LOG.debug(
+                            "JWT token issued in the future (allowed clock skew: {}s): {}",
+                            DEFAULT_CLOCK_SKEW_SECONDS,
+                            issuedAt);
+                    return false;
+                }
+            }
 
             // Verify signature
+            JWSVerifier verifier = createVerifier(jwk);
             return signedJWT.verify(verifier);
 
         } catch (Exception e) {
@@ -123,7 +142,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     /**
      * Gets the appropriate JWK for verification from JWKS.
      */
-    private JWK getJwkForVerification(String keyId) {
+    private static JWK getJwkForVerification(String keyId) {
         try {
             JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
             String jwksUrl = config != null ? config.getJwksUrl() : null;
@@ -171,7 +190,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     /**
      * Gets the JWK set
      */
-    private JWKSet getJwks(String url) {
+    private static JWKSet getJwks(String url) {
         try {
             LOG.debug("Fetching JWKS from: {}", url);
             return JWKSet.load(new URL(url));
@@ -184,7 +203,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     /**
      * Creates appropriate JWS verifier based on key type and algorithm.
      */
-    private JWSVerifier createVerifier(JWK jwk) throws JOSEException {
+    private static JWSVerifier createVerifier(JWK jwk) throws JOSEException {
         if (jwk instanceof RSAKey rsaKey) {
             RSAPublicKey publicKey = rsaKey.toRSAPublicKey();
             return new RSASSAVerifier(publicKey);
@@ -206,7 +225,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     /**
      * Validates JWT token and returns Authentication object if valid.
      */
-    private Authentication validateJwtToken(String tokenString) {
+    private Authentication validateJwtToken(boolean skipJwtValidation, String tokenString) {
         try {
             LOG.debug("Starting JWT token validation");
 
@@ -216,8 +235,14 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
             LOG.debug(
                     "JWT parsed successfully. Subject: {}, Issuer: {}", claimsSet.getSubject(), claimsSet.getIssuer());
 
+            if (skipJwtValidation) {
+                LOG.info("Skipping JWT signature validation due to request attribute from crumb");
+            } else {
+                LOG.info("Performing JWT signature validation");
+            }
+
             // Validate token signature
-            if (!verifyJwtSignature(signedJWT)) {
+            if (!skipJwtValidation && !verifyJwtSignature(signedJWT)) {
                 LOG.warn("JWT token signature validation failed");
                 return null;
             }
@@ -261,26 +286,6 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
      */
     private boolean validateTokenClaims(JWTClaimsSet claimsSet) {
         try {
-            // Validate expiration
-            Date expirationTime = claimsSet.getExpirationTime();
-            if (expirationTime != null && expirationTime.before(new Date())) {
-                LOG.debug("JWT token has expired: {}", expirationTime);
-                return false;
-            }
-
-            // Validate issued at time (with clock skew tolerance)
-            Date issuedAt = claimsSet.getIssueTime();
-            if (issuedAt != null) {
-                long clockSkewMillis = DEFAULT_CLOCK_SKEW_SECONDS * 1000;
-                Date now = new Date();
-                if (issuedAt.getTime() > now.getTime() + clockSkewMillis) {
-                    LOG.debug(
-                            "JWT token issued in the future (allowed clock skew: {}s): {}",
-                            DEFAULT_CLOCK_SKEW_SECONDS,
-                            issuedAt);
-                    return false;
-                }
-            }
 
             // Validate audience
             JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
