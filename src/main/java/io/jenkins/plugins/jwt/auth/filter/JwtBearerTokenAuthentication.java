@@ -10,17 +10,12 @@ import org.springframework.security.core.GrantedAuthority;
 public class JwtBearerTokenAuthentication implements Authentication {
 
     private final String principal;
-    private final String token;
     private final Collection<? extends GrantedAuthority> authorities;
-    private final Object details;
     private boolean authenticated;
 
-    public JwtBearerTokenAuthentication(
-            String principal, String token, Collection<? extends GrantedAuthority> authorities) {
+    public JwtBearerTokenAuthentication(String principal, Collection<? extends GrantedAuthority> authorities) {
         this.principal = principal;
-        this.token = token;
         this.authorities = authorities;
-        this.details = null;
         this.authenticated = true;
     }
 
@@ -31,12 +26,12 @@ public class JwtBearerTokenAuthentication implements Authentication {
 
     @Override
     public Object getCredentials() {
-        return token;
+        return null; // Not used by Jenkins
     }
 
     @Override
     public Object getDetails() {
-        return details;
+        return null; // Not used by Jenkins
     }
 
     @Override

@@ -245,7 +245,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
             ensureUserExists(username, name, email);
 
             LOG.debug("JWT validation completed successfully for user: {}", username);
-            return new JwtBearerTokenAuthentication(username, tokenString, authorities);
+            return new JwtBearerTokenAuthentication(username, authorities);
 
         } catch (ParseException e) {
             LOG.warn("Failed to parse JWT token", e);
