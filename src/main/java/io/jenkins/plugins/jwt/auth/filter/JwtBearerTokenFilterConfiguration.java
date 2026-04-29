@@ -11,6 +11,7 @@ import java.text.ParseException;
 import java.util.Arrays;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -112,6 +113,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     @POST
     @SuppressWarnings("unused")
     public FormValidation doTestPath(@QueryParameter String protectedPaths, @QueryParameter String testPath) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         LOG.trace("Testing path '{}' against protected paths pattern '{}'", testPath, protectedPaths);
         if (anyMatch(protectedPaths, testPath)) {
             return FormValidation.ok("The test path matches at least one of the protected paths pattern.");
@@ -122,6 +124,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     @POST
     @SuppressWarnings("unused")
     public FormValidation doCheckProtectedPaths(@QueryParameter String value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         if (value == null || value.trim().isEmpty()) {
             return FormValidation.error("Protected path cannot be empty.");
         }
@@ -141,6 +144,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     @POST
     @SuppressWarnings("unused")
     public FormValidation doCheckJwksUrl(@QueryParameter String value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         if (value == null || value.trim().isEmpty()) {
             return FormValidation.error("JWKS URL cannot be empty. Please provide a valid URL to fetch the JWKS from.");
         }
