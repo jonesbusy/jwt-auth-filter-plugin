@@ -10,7 +10,7 @@
   </parent>
 
   <groupId>io.jenkins.plugins</groupId>
-  <artifactId>jwt-auth-filter-plugin</artifactId>
+  <artifactId>jwt-auth-filter</artifactId>
   <version>${changelist}</version>
   <packaging>hpi</packaging>
 
@@ -39,6 +39,7 @@
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
     <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
     <hpi.bundledArtifacts>nimbus-jose-jwt</hpi.bundledArtifacts>
+    <ban-commons-lang-2.skip>false</ban-commons-lang-2.skip>
     <ban-deprecated-stapler.skip>false</ban-deprecated-stapler.skip>
   </properties>
 
