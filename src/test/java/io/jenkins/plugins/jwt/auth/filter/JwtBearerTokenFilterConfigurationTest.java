@@ -2,6 +2,8 @@ package io.jenkins.plugins.jwt.auth.filter;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
@@ -15,15 +17,38 @@ class JwtBearerTokenFilterConfigurationTest {
     @Test
     void shouldAnyMatch(JenkinsRule jenkinsRule) {
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
-        assertTrue(config.anyMatch("**", ""), "** should match empty");
-        assertTrue(config.anyMatch("/**", "/api"), "/** should match /api");
-        assertTrue(config.anyMatch("/**", "/api/my-api"), "/** should match /api/my-api");
-        assertTrue(config.anyMatch("/api/**", "/api"), "/api/** should match /api");
-        assertTrue(config.anyMatch("/api/**", "/api/my-api"), "/api/** should match /api/my-api");
-        assertFalse(config.anyMatch("/api/**", "/test/api"), "/api/** should NOT match /test/api");
-        assertFalse(config.anyMatch("/api/**", "/test/api/my-api"), "/api/** should NOT match /test/api/my-api");
-        assertTrue(config.anyMatch("/**/api/**", "/test/api"), "/**/api/** should match /test/api");
-        assertTrue(config.anyMatch("/**/api/**", "/test/api/my-api"), "/**/api/** should match /test/api/my-api");
+
+        // Create test issuers
+        Issuer issuer1 = new Issuer("https://example1.com", "audience1", "/api/**");
+        Issuer issuer2 = new Issuer("https://example2.com", "audience2", "/**/test/**");
+        config.setIssuers(Arrays.asList(issuer1, issuer2));
+
+        // Test path matching
+        assertTrue(config.anyMatch("/api/test"), "/api/test should match first issuer");
+        assertTrue(config.anyMatch("/foo/test/bar"), "/foo/test/bar should match second issuer");
+        assertFalse(config.anyMatch("/other/path"), "/other/path should not match any issuer");
+    }
+
+    @Test
+    void testGetMatchingIssuer(JenkinsRule jenkinsRule) {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+
+        // Create test issuers
+        Issuer issuer1 = new Issuer("https://example1.com", "audience1", "/api/**");
+        Issuer issuer2 = new Issuer("https://example2.com", "audience2", "/**/test/**");
+        config.setIssuers(Arrays.asList(issuer1, issuer2));
+
+        // Test getting matching issuer
+        Issuer matching = config.getMatchingIssuer("/api/something");
+        assertNotNull(matching, "Should find matching issuer for /api/something");
+        assertEquals("https://example1.com", matching.getJwksUrl());
+
+        matching = config.getMatchingIssuer("/foo/test/bar");
+        assertNotNull(matching, "Should find matching issuer for /foo/test/bar");
+        assertEquals("https://example2.com", matching.getJwksUrl());
+
+        matching = config.getMatchingIssuer("/other/path");
+        assertNull(matching, "Should not find matching issuer for /other/path");
     }
 
     @Test
@@ -31,22 +56,36 @@ class JwtBearerTokenFilterConfigurationTest {
 
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         assertNotNull(config, "Configuration instance should not be null");
-        String testJwksUrl = "https://keycloak.example.com/realms/test/protocol/openid-connect/certs";
-        String testAudience = "test-jenkins";
-        String testProtectedPaths = "**/api/**";
+
+        // Create test issuers
+        Issuer issuer1 = new Issuer(
+                "https://keycloak.example.com/realms/test/protocol/openid-connect/certs", "test-jenkins", "/**/api/**");
+        Issuer issuer2 = new Issuer(
+                "https://keycloak2.example.com/realms/test/protocol/openid-connect/certs", "test-jenkins2", "/mcp/**");
+        List<Issuer> testIssuers = Arrays.asList(issuer1, issuer2);
 
         // Set values and save
-        config.setJwksUrl(testJwksUrl);
-        config.setAllowedAudience(testAudience);
-        config.setProtectedPaths(testProtectedPaths);
+        config.setIssuers(testIssuers);
         config.save();
 
         // Round trip
         jenkinsRule.configRoundtrip();
 
         // Then - Verify values are set
-        assertEquals(testJwksUrl, config.getJwksUrl(), "JWKS URL should match");
-        assertEquals(testAudience, config.getAllowedAudience(), "Allowed audience should match");
-        assertEquals(testProtectedPaths, config.getProtectedPaths(), "Protected paths should match");
+        List<Issuer> savedIssuers = config.getIssuers();
+        assertNotNull(savedIssuers, "Issuers should not be null");
+        assertEquals(2, savedIssuers.size(), "Should have 2 issuers");
+
+        Issuer savedIssuer1 = savedIssuers.get(0);
+        assertEquals(
+                "https://keycloak.example.com/realms/test/protocol/openid-connect/certs", savedIssuer1.getJwksUrl());
+        assertEquals("test-jenkins", savedIssuer1.getAllowedAudience());
+        assertEquals("/**/api/**", savedIssuer1.getProtectedPaths());
+
+        Issuer savedIssuer2 = savedIssuers.get(1);
+        assertEquals(
+                "https://keycloak2.example.com/realms/test/protocol/openid-connect/certs", savedIssuer2.getJwksUrl());
+        assertEquals("test-jenkins2", savedIssuer2.getAllowedAudience());
+        assertEquals("/mcp/**", savedIssuer2.getProtectedPaths());
     }
 }

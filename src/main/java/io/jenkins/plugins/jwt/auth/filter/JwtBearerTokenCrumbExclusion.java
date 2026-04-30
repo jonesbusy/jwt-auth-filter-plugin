@@ -29,8 +29,10 @@ public class JwtBearerTokenCrumbExclusion extends CrumbExclusion {
         // Skip if not on configured path
         String requestURI = httpRequest.getRequestURI();
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
-        if (!config.anyMatch(config.getProtectedPaths(), requestURI)) {
-            LOG.trace("Request URI '{}' does not match protected paths - skipping JWT Bearer Crumb filter", requestURI);
+        if (!config.anyMatch(requestURI)) {
+            LOG.trace(
+                    "Request URI '{}' does not match any protected paths - skipping JWT Bearer Crumb filter",
+                    requestURI);
             return false;
         }
 
@@ -41,14 +43,23 @@ public class JwtBearerTokenCrumbExclusion extends CrumbExclusion {
             return false;
         }
 
-        // Validate a valid JWT token
+        // Validate a valid JWT token against any matching issuer
         String tokenString = authHeader.substring(JwtBearerTokenFilter.BEARER_PREFIX.length());
         try {
-            if (JwtBearerTokenFilter.verifyJwtSignature(SignedJWT.parse(tokenString))) {
-                LOG.info("Valid JWT token found in request, excluding from Crumb");
-                httpRequest.setAttribute(JwtBearerTokenCrumbExclusion.class.getName(), Boolean.TRUE);
-                chain.doFilter(httpRequest, httpResponse);
-                return true;
+            SignedJWT signedJWT = SignedJWT.parse(tokenString);
+
+            // Get all issuers that match the request path
+            for (Issuer issuer : config.getIssuers()) {
+                if (issuer.matchesPath(requestURI)) {
+                    if (JwtBearerTokenFilter.verifyJwtSignature(signedJWT, issuer)) {
+                        LOG.info(
+                                "Valid JWT token found in request for issuer {}, excluding from Crumb",
+                                issuer.getJwksUrl());
+                        httpRequest.setAttribute(JwtBearerTokenCrumbExclusion.class.getName(), Boolean.TRUE);
+                        chain.doFilter(httpRequest, httpResponse);
+                        return true;
+                    }
+                }
             }
         } catch (Exception e) {
             // Do nothing

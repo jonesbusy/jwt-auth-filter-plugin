@@ -59,8 +59,8 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
         String requestURI = httpRequest.getRequestURI();
 
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
-        if (!config.anyMatch(config.getProtectedPaths(), requestURI)) {
-            LOG.trace("Request URI '{}' does not match protected paths - skipping JWT filter", requestURI);
+        if (!config.anyMatch(requestURI)) {
+            LOG.trace("Request URI '{}' does not match any protected paths - skipping JWT filter", requestURI);
             return false;
         }
 
@@ -77,33 +77,33 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
         String token = authHeader.substring(BEARER_PREFIX.length());
         boolean skipJwtValidation =
                 Boolean.TRUE.equals(httpRequest.getAttribute(JwtBearerTokenCrumbExclusion.class.getName()));
-        Authentication authentication = validateJwtToken(skipJwtValidation, token);
+        Authentication authentication = validateJwtToken(skipJwtValidation, token, requestURI);
 
         if (authentication != null) {
 
             // Set authentication context
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            LOG.info("JWT Bearer token authenticated user '{}' at path '{}'", authentication.getName(), requestURI);
+            LOG.info("JWT Bearer token authenticated user '{}' for path '{}'", authentication.getName(), requestURI);
             return false; // Continue filter chain
         }
 
         // Continue filters
-        LOG.debug("JWT Bearer token validation failed - continuing with normal auth");
+        LOG.warn("JWT Bearer token validation failed - continuing with normal auth");
         return false;
     }
 
     /**
-     * Verifies the signature of a signed JWT using JWKS.
+     * Verifies the signature of a signed JWT using JWKS from the specified issuer.
      */
-    public static boolean verifyJwtSignature(SignedJWT signedJWT) {
+    public static boolean verifyJwtSignature(SignedJWT signedJWT, Issuer issuer) {
         try {
             JWSHeader header = signedJWT.getHeader();
             String keyId = header.getKeyID();
 
             // Get the JWK
-            JWK jwk = getJwkForVerification(keyId);
+            JWK jwk = getJwkForVerification(keyId, issuer);
             if (jwk == null) {
-                LOG.debug("No JWK found for key ID: {}", keyId);
+                LOG.debug("No JWK found for key ID: {} from issuer: {}", keyId, issuer.getJwksUrl());
                 return false;
             }
 
@@ -111,7 +111,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
             JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
             Date expirationTime = claimsSet.getExpirationTime();
             if (expirationTime != null && expirationTime.before(new Date())) {
-                LOG.debug("JWT token has expired: {}", expirationTime);
+                LOG.warn("JWT token has expired: {}", expirationTime);
                 return false;
             }
 
@@ -121,7 +121,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
                 long clockSkewMillis = DEFAULT_CLOCK_SKEW_SECONDS * 1000;
                 Date now = new Date();
                 if (issuedAt.getTime() > now.getTime() + clockSkewMillis) {
-                    LOG.debug(
+                    LOG.warn(
                             "JWT token issued in the future (allowed clock skew: {}s): {}",
                             DEFAULT_CLOCK_SKEW_SECONDS,
                             issuedAt);
@@ -134,21 +134,20 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
             return signedJWT.verify(verifier);
 
         } catch (Exception e) {
-            LOG.warn("JWT signature verification error", e);
+            LOG.warn("JWT signature verification error for issuer: " + issuer.getJwksUrl(), e);
             return false;
         }
     }
 
     /**
-     * Gets the appropriate JWK for verification from JWKS.
+     * Gets the appropriate JWK for verification from JWKS of the specified issuer.
      */
-    private static JWK getJwkForVerification(String keyId) {
+    private static JWK getJwkForVerification(String keyId, Issuer issuer) {
         try {
-            JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
-            String jwksUrl = config != null ? config.getJwksUrl() : null;
+            String jwksUrl = issuer.getJwksUrl();
 
             if (jwksUrl == null || jwksUrl.trim().isEmpty()) {
-                LOG.warn("JWKS URL not configured. Please configure it in Jenkins Global Configuration.");
+                LOG.warn("JWKS URL not configured for issuer. Please configure it in Jenkins Global Configuration.");
                 return null;
             }
 
@@ -158,7 +157,8 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
                 return null;
             }
             LOG.debug(
-                    "JWKS fetched successfully, contains {} keys",
+                    "JWKS fetched successfully from {}, contains {} keys",
+                    jwksUrl,
                     jwkSet.getKeys().size());
 
             // Find key by ID or use first available key
@@ -182,7 +182,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
             return jwk;
 
         } catch (Exception e) {
-            LOG.warn("Failed to get JWK for verification", e);
+            LOG.warn("Failed to get JWK for verification from issuer: " + issuer.getJwksUrl(), e);
             return null;
         }
     }
@@ -224,53 +224,87 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
 
     /**
      * Validates JWT token and returns Authentication object if valid.
+     * Tries each issuer that matches the request path until one validates successfully.
      */
-    private Authentication validateJwtToken(boolean skipJwtValidation, String tokenString) {
+    private Authentication validateJwtToken(boolean skipJwtValidation, String tokenString, String requestURI) {
         try {
-            LOG.debug("Starting JWT token validation");
+            LOG.debug("Starting JWT token validation for URI: {}", requestURI);
 
-            // Parse JWT token
+            // Parse JWT token once
             SignedJWT signedJWT = SignedJWT.parse(tokenString);
             JWTClaimsSet claimsSet = signedJWT.getJWTClaimsSet();
             LOG.debug(
                     "JWT parsed successfully. Subject: {}, Issuer: {}", claimsSet.getSubject(), claimsSet.getIssuer());
 
-            if (skipJwtValidation) {
-                LOG.info("Skipping JWT signature validation due to request attribute from crumb");
-            } else {
-                LOG.info("Performing JWT signature validation");
-            }
-
-            // Validate token signature
-            if (!skipJwtValidation && !verifyJwtSignature(signedJWT)) {
-                LOG.warn("JWT token signature validation failed");
+            // Get configuration
+            JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+            if (config == null) {
+                LOG.warn("JWT Bearer Token configuration not available");
                 return null;
             }
 
-            // Validate claims (expiration, audience, issuer)
-            if (!validateTokenClaims(claimsSet)) {
-                LOG.debug("JWT token claims validation failed");
+            // Get all issuers that match the request path
+            List<Issuer> matchingIssuers = config.getIssuers().stream()
+                    .filter(issuer -> issuer.matchesPath(requestURI))
+                    .toList();
+
+            if (matchingIssuers.isEmpty()) {
+                LOG.warn("No issuers match the request path: {}", requestURI);
                 return null;
             }
 
-            // Extract user information
-            String username = extractUsername(claimsSet);
-            if (username == null || username.isEmpty()) {
-                LOG.warn("Unable to extract username from JWT token");
-                return null;
+            // Try each matching issuer until one validates successfully
+            for (Issuer issuer : matchingIssuers) {
+                LOG.debug(
+                        "Trying issuer with JWKS URL: {} and audience: {}",
+                        issuer.getJwksUrl(),
+                        issuer.getAllowedAudience());
+
+                // Validate claims (expiration, audience, issuer) for this issuer
+                if (!validateTokenClaims(claimsSet, issuer)) {
+                    LOG.warn("JWT token claims validation failed for issuer: {}", issuer.getJwksUrl());
+                    continue; // Try next issuer
+                }
+
+                if (skipJwtValidation) {
+                    LOG.info("Skipping JWT signature validation due to request attribute from crumb");
+                } else {
+                    LOG.info("Performing JWT signature validation for issuer: {}", issuer.getJwksUrl());
+                    // Validate token signature for this issuer
+                    if (!verifyJwtSignature(signedJWT, issuer)) {
+                        LOG.warn("JWT token signature validation failed for issuer: {}", issuer.getJwksUrl());
+                        continue; // Try next issuer
+                    }
+                }
+
+                // This issuer validated successfully
+                LOG.info("JWT token validated successfully with issuer: {}", issuer.getJwksUrl());
+
+                // Extract user information
+                String username = extractUsername(claimsSet);
+                if (username == null || username.isEmpty()) {
+                    LOG.warn("Unable to extract username from JWT token");
+                    continue; // Try next issuer
+                }
+                String name = extractName(claimsSet);
+                String email = extractEmail(claimsSet);
+
+                // Extract authorities/groups
+                Collection<GrantedAuthority> authorities = extractAuthorities(claimsSet);
+                LOG.debug("Extracted username: {} with {} authorities", username, authorities.size());
+
+                // Create or update Jenkins user
+                ensureUserExists(username, name, email);
+
+                LOG.debug(
+                        "JWT validation completed successfully for user: {} with issuer: {}",
+                        username,
+                        issuer.getJwksUrl());
+                return new JwtBearerTokenAuthentication(username, authorities);
             }
-            String name = extractName(claimsSet);
-            String email = extractEmail(claimsSet);
 
-            // Extract authorities/groups
-            Collection<GrantedAuthority> authorities = extractAuthorities(claimsSet);
-            LOG.debug("Extracted username: {} with {} authorities", username, authorities.size());
-
-            // Create or update Jenkins user
-            ensureUserExists(username, name, email);
-
-            LOG.debug("JWT validation completed successfully for user: {}", username);
-            return new JwtBearerTokenAuthentication(username, authorities);
+            LOG.debug("JWT token validation failed for all matching issuers");
+            return null;
 
         } catch (ParseException e) {
             LOG.warn("Failed to parse JWT token", e);
@@ -282,29 +316,34 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     }
 
     /**
-     * Validates JWT token claims (expiration, audience, etc.).
+     * Validates JWT token claims (audience, etc.) for the specified issuer.
      */
-    private boolean validateTokenClaims(JWTClaimsSet claimsSet) {
+    private boolean validateTokenClaims(JWTClaimsSet claimsSet, Issuer issuer) {
         try {
 
             // Validate audience
-            JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
-            String expectedAudience = config != null ? config.getAllowedAudience() : null;
+            String expectedAudience = issuer.getAllowedAudience();
 
             if (expectedAudience == null || expectedAudience.trim().isEmpty()) {
-                LOG.warn("Allowed audience not configured. Please configure it in Jenkins Global Configuration.");
+                LOG.warn(
+                        "Allowed audience not configured for issuer: {}. Please configure it in Jenkins Global Configuration.",
+                        issuer.getJwksUrl());
                 return false;
             }
 
             List<String> audiences = claimsSet.getAudience();
             if (audiences == null || !audiences.contains(expectedAudience)) {
-                LOG.warn("JWT token audience validation failed - Expected: {}, Found: {}", expectedAudience, audiences);
+                LOG.warn(
+                        "JWT token audience validation failed for issuer: {} - Expected: {}, Found: {}",
+                        issuer.getJwksUrl(),
+                        expectedAudience,
+                        audiences);
                 return false;
             }
             return true;
 
         } catch (Exception e) {
-            LOG.warn("JWT claims validation failed with exception", e);
+            LOG.warn("JWT claims validation failed with exception for issuer: " + issuer.getJwksUrl(), e);
             return false;
         }
     }
