@@ -1,5 +1,7 @@
 package io.jenkins.plugins.jwt.auth.filter;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSVerifier;
@@ -24,6 +26,7 @@ import java.net.URL;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
@@ -51,6 +54,11 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
 
     public static final String BEARER_PREFIX = "Bearer ";
     private static final long DEFAULT_CLOCK_SKEW_SECONDS = 60;
+
+    // JWKS Cache configuration
+    private static final Duration JWKS_CACHE_EXPIRATION = Duration.ofMinutes(5);
+    private static final Cache<String, JWKSet> JWKS_CACHE =
+            Caffeine.newBuilder().expireAfterWrite(JWKS_CACHE_EXPIRATION).build();
 
     @Override
     public boolean handle(HttpServletRequest httpRequest, HttpServletResponse httpResponse)
@@ -188,14 +196,27 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     }
 
     /**
-     * Gets the JWK set
+     * Gets the JWK set with caching support (5-minute TTL)
      */
     private static JWKSet getJwks(String url) {
         try {
-            LOG.debug("Fetching JWKS from: {}", url);
-            return JWKSet.load(new URL(url));
-        } catch (IOException | ParseException e) {
-            LOG.debug("Failed to fetch JWKS from: {}", url, e);
+            LOG.debug("Getting JWKS from cache or fetching from: {}", url);
+            return JWKS_CACHE.get(url, jwksUrl -> {
+                try {
+                    LOG.info("Cache miss - fetching JWKS from: {}", jwksUrl);
+                    JWKSet jwkSet = JWKSet.load(new URL(jwksUrl));
+                    if (jwkSet != null && !jwkSet.getKeys().isEmpty()) {
+                        return jwkSet;
+                    }
+                    LOG.warn("JWKS endpoint returned empty key set: {}", jwksUrl);
+                    return null;
+                } catch (IOException | ParseException e) {
+                    LOG.warn("Failed to fetch JWKS from: {}", jwksUrl, e);
+                    return null;
+                }
+            });
+        } catch (Exception e) {
+            LOG.warn("Error accessing JWKS cache for URL: {}", url, e);
             return null;
         }
     }

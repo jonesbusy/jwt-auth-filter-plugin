@@ -62,9 +62,8 @@ public class JwtBearerTokenCrumbExclusion extends CrumbExclusion {
                 }
             }
         } catch (Exception e) {
-            // Do nothing
+            LOG.warn("Failed to parse or verify JWT token from Authorization header", e);
         }
-        chain.doFilter(httpRequest, httpResponse);
         return false;
     }
 }
