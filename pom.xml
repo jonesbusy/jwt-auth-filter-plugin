@@ -38,7 +38,6 @@
     <spotless.check.skip>false</spotless.check.skip>
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
     <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
-    <hpi.bundledArtifacts>nimbus-jose-jwt</hpi.bundledArtifacts>
     <ban-commons-lang-2.skip>false</ban-commons-lang-2.skip>
     <ban-deprecated-stapler.skip>false</ban-deprecated-stapler.skip>
   </properties>
@@ -57,9 +56,9 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.nimbusds</groupId>
-      <artifactId>nimbus-jose-jwt</artifactId>
-      <version>10.9</version>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>nimbus-jose-jwt-api</artifactId>
+      <version>10.9-1.v5c056b_1a_00a_6</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
