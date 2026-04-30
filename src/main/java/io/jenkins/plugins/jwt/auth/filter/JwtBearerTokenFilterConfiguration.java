@@ -1,14 +1,11 @@
 package io.jenkins.plugins.jwt.auth.filter;
 
-import com.nimbusds.jose.jwk.JWKSet;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.FormValidation;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
 import jenkins.model.Jenkins;
@@ -35,9 +32,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
      */
     private static final Logger LOG = LoggerFactory.getLogger(JwtBearerTokenFilterConfiguration.class);
 
-    private String jwksUrl;
-    private String allowedAudience;
-    private String protectedPaths;
+    private List<Issuer> issuers;
     private static final AntPathMatcher ANT_MATCHER = new AntPathMatcher();
     private static final String PATH_SEPARATOR = ",";
 
@@ -62,31 +57,13 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         return true;
     }
 
-    public String getJwksUrl() {
-        return jwksUrl;
+    public List<Issuer> getIssuers() {
+        return issuers != null ? issuers : new ArrayList<>();
     }
 
     @DataBoundSetter
-    public void setJwksUrl(String jwksUrl) {
-        this.jwksUrl = jwksUrl;
-    }
-
-    public String getAllowedAudience() {
-        return allowedAudience;
-    }
-
-    @DataBoundSetter
-    public void setAllowedAudience(String allowedAudience) {
-        this.allowedAudience = allowedAudience;
-    }
-
-    public String getProtectedPaths() {
-        return protectedPaths;
-    }
-
-    @DataBoundSetter
-    public void setProtectedPaths(String protectedPaths) {
-        this.protectedPaths = protectedPaths;
+    public void setIssuers(List<Issuer> issuers) {
+        this.issuers = issuers != null ? new ArrayList<>(issuers) : new ArrayList<>();
     }
 
     @Override
@@ -95,10 +72,34 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     }
 
     /**
-     * Return if the request URI match any of the protected path
+     * Returns the first issuer that matches the request URI path patterns.
      * @param requestURI The request URI
-     * @return True or false
+     * @return The matching issuer, or null if none matches
      */
+    public Issuer getMatchingIssuer(String requestURI) {
+        if (issuers == null || issuers.isEmpty()) {
+            return null;
+        }
+        return issuers.stream()
+                .filter(issuer -> issuer.matchesPath(requestURI))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Return if the request URI match any of the protected path patterns from any issuer
+     * @param requestURI The request URI
+     * @return True if the URI matches any protected path pattern, false otherwise
+     */
+    public boolean anyMatch(String requestURI) {
+        if (issuers == null || issuers.isEmpty()) {
+            return false;
+        }
+        return issuers.stream().anyMatch(issuer -> issuer.matchesPath(requestURI));
+    }
+
+    // Deprecated methods for backward compatibility - these are no longer used but kept for potential legacy code
+    @Deprecated
     boolean anyMatch(String protectedPaths, String requestURI) {
         if (protectedPaths == null) {
             return false;
@@ -115,66 +116,15 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     public FormValidation doTestPath(@QueryParameter String protectedPaths, @QueryParameter String testPath) {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         LOG.trace("Testing path '{}' against protected paths pattern '{}'", testPath, protectedPaths);
-        if (anyMatch(protectedPaths, testPath)) {
+        if (protectedPaths == null) {
+            return FormValidation.error("Protected path cannot be empty.");
+        }
+        boolean matches = Arrays.stream(protectedPaths.split(PATH_SEPARATOR)).anyMatch(pattern -> {
+            return ANT_MATCHER.match(pattern.trim(), testPath.trim());
+        });
+        if (matches) {
             return FormValidation.ok("The test path matches at least one of the protected paths pattern.");
         }
         return FormValidation.error("The test path does NOT match any of the protected paths pattern.");
-    }
-
-    @POST
-    @SuppressWarnings("unused")
-    public FormValidation doCheckProtectedPaths(@QueryParameter String value) {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-        if (value == null || value.trim().isEmpty()) {
-            return FormValidation.error("Protected path cannot be empty.");
-        }
-        String[] parts = value.split(PATH_SEPARATOR);
-        for (String part : parts) {
-            if (part == null || part.trim().isEmpty()) {
-                return FormValidation.error("Protected path cannot be empty.");
-            }
-            if (!ANT_MATCHER.isPattern(part.trim())) {
-                return FormValidation.error(
-                        "Invalid Ant-style pattern: '" + part.trim() + "'. Please provide a valid pattern.");
-            }
-        }
-        return FormValidation.ok();
-    }
-
-    @POST
-    @SuppressWarnings("unused")
-    public FormValidation doCheckJwksUrl(@QueryParameter String value) {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-        if (value == null || value.trim().isEmpty()) {
-            return FormValidation.error("JWKS URL cannot be empty. Please provide a valid URL to fetch the JWKS from.");
-        }
-
-        String trimmedValue = value.trim();
-
-        // Basic URL format validation
-        try {
-            new URL(trimmedValue);
-        } catch (MalformedURLException e) {
-            return FormValidation.error("Invalid URL format: " + e.getMessage());
-        }
-
-        // Attempt to fetch and validate JWKS
-        try {
-            JWKSet jwkSet = JWKSet.load(new URL(trimmedValue));
-            if (jwkSet.getKeys().isEmpty()) {
-                return FormValidation.warning(
-                        "JWKS endpoint is reachable but contains no keys. Make sure this is the correct endpoint.");
-            }
-            return FormValidation.ok(
-                    "Successfully fetched JWKS with " + jwkSet.getKeys().size() + " key(s)");
-        } catch (IOException e) {
-            return FormValidation.error("Failed to fetch JWKS from URL: " + e.getMessage()
-                    + ". Please check the URL and ensure Jenkins can reach the endpoint.");
-        } catch (ParseException e) {
-            return FormValidation.error("Invalid JWKS format returned from URL: " + e.getMessage()
-                    + ". Please verify this is a valid JWKS endpoint.");
-        } catch (Exception e) {
-            return FormValidation.error("Unexpected error while validating JWKS URL: " + e.getMessage());
-        }
     }
 }

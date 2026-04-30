@@ -1,5 +1,9 @@
 security:
   jwtBearer:
-    jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
-    allowedAudience: "jenkins-casc-test"
-    protectedPaths: "/**/api/**,/mcp/**"
+    issuers:
+      - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
+        allowedAudience: "jenkins-casc-test2"
+        protectedPaths: "/mcp/**"
+      - jwksUrl: "https://keycloak-casc-test.other.com/realms/jenkins/protocol/openid-connect/certs"
+        allowedAudience: "jenkins-casc-test2"
+        protectedPaths: "/**/api/**"

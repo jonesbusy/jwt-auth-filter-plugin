@@ -38,9 +38,13 @@ Or via JCasC
 ```yaml
 security:
   jwtBearer:
-    jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
-    allowedAudience: "jenkins-casc-test"
-    protectedPaths: "/**/api/**,/mcp/**"
+    issuers:
+      - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
+        allowedAudience: "jenkins-casc-test2"
+        protectedPaths: "/mcp/**"
+      - jwksUrl: "https://keycloak-casc-test.other.com/realms/jenkins/protocol/openid-connect/certs"
+        allowedAudience: "jenkins-casc-test2"
+        protectedPaths: "/**/api/**"
 ```
 
 For manual tests you can use following commands to request a token and use it to access the API:

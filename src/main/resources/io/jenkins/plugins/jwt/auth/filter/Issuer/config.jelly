@@ -1,0 +1,27 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="JWKS URL" field="jwksUrl" description="URL to the JSON Web Key Set (JWKS) endpoint for JWT token signature verification.">
+    <f:textbox checkMethod="post"/>
+  </f:entry>
+  <f:entry title="Allowed Audience" field="allowedAudience" description="Expected audience in JWT 'aud' claim.">
+    <f:textbox checkMethod="post"/>
+  </f:entry>
+  <f:entry title="Protected paths" field="protectedPaths" description="Comma separated Ant-style patterns to match protected paths">
+    <f:textbox default="/**/api/**" checkMethod="post"/>
+  </f:entry>
+  <f:advanced>
+    <f:entry title="Test path" field="testPath">
+      <f:textbox default="/whoAmI/api/json"/>
+    </f:entry>
+    <f:entry>
+      <f:validateButton title="${%Test path}" progress="${%Testing...}"
+                        method="testPath"
+                        with="protectedPaths,testPath"/>
+    </f:entry>
+  </f:advanced>
+  <f:entry title="">
+    <div align="right">
+      <f:repeatableDeleteButton/>
+    </div>
+  </f:entry>
+</j:jelly>
