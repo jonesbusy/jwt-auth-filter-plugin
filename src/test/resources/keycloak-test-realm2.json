@@ -1,11 +1,11 @@
 {
-  "realm": "jenkins-test",
+  "realm": "jenkins-test-2",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
   "clients": [
     {
-      "clientId": "jenkins",
+      "clientId": "jenkins2",
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
@@ -15,42 +15,32 @@
       "webOrigins": [],
       "protocolMappers": [
         {
-          "name": "jenkins-audience",
+          "name": "jenkins2-audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "jenkins",
+            "included.client.audience": "jenkins2",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
         }
       ]
-    },
-    {
-      "clientId": "jenkins-no-aud",
-      "enabled": true,
-      "publicClient": true,
-      "directAccessGrantsEnabled": true,
-      "standardFlowEnabled": false,
-      "serviceAccountsEnabled": false,
-      "redirectUris": [],
-      "webOrigins": []
     }
   ],
   "users": [
     {
-      "username": "testuser",
+      "username": "testuser2",
       "firstName": "Test",
-      "lastName": "User",
+      "lastName": "User Two",
       "enabled": true,
       "emailVerified": true,
-      "email": "testuser@example.com",
+      "email": "testuser2@example.com",
       "requiredActions": [],
       "credentials": [
         {
           "type": "password",
-          "value": "testpass",
+          "value": "testpass2",
           "temporary": false
         }
       ]
