@@ -11,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Integration tests for JWT Bearer Token authentication using a real Keycloak instance via Testcontainers.
@@ -45,9 +47,11 @@ class KeycloakIntegrationTest {
 
     @BeforeAll
     static void startKeycloak() {
-        keycloak = new KeycloakContainer()
+        keycloak = new KeycloakContainer(DockerImageName.parse("quay.io/keycloak/keycloak:26.6"))
                 .withRealmImportFile("keycloak-test-realm.json")
-                .withRealmImportFile("keycloak-test-realm2.json");
+                .withRealmImportFile("keycloak-test-realm2.json")
+                .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(3));
         keycloak.start();
     }
 
@@ -57,8 +61,6 @@ class KeycloakIntegrationTest {
             keycloak.stop();
         }
     }
-
-    // ---- Basic JWT validation tests ----
 
     @Test
     void shouldReturn200WithValidJwtToken(JenkinsRule jenkinsRule) throws Exception {
@@ -92,8 +94,6 @@ class KeycloakIntegrationTest {
                 "Should return 401 or 403 with an invalid JWT token, got: " + statusCode);
     }
 
-    // ---- Audience validation tests ----
-
     @Test
     void shouldReturn401Or403WithWrongAudience(JenkinsRule jenkinsRule) throws Exception {
         // Issuer expects "wrong-audience" but the token will carry aud=["jenkins"]
@@ -120,8 +120,6 @@ class KeycloakIntegrationTest {
                 "Should return 401 or 403 when token has no matching audience, got: " + statusCode);
     }
 
-    // ---- Username claim mapping test ----
-
     @Test
     void shouldReturn401Or403WithMissingUsernameClaim(JenkinsRule jenkinsRule) throws Exception {
         // Configure issuer with a username claim that is absent from the token
@@ -139,8 +137,6 @@ class KeycloakIntegrationTest {
                 statusCode == 401 || statusCode == 403,
                 "Should return 401 or 403 when username claim is missing from token, got: " + statusCode);
     }
-
-    // ---- Two-issuer tests with different protected paths ----
 
     @Test
     void shouldReturn200WithFirstIssuerOnItsProtectedPath(JenkinsRule jenkinsRule) throws Exception {
@@ -177,8 +173,6 @@ class KeycloakIntegrationTest {
                 statusCode == 401 || statusCode == 403,
                 "Realm1 token should be rejected on issuer2's path, got: " + statusCode);
     }
-
-    // ---- Helper methods ----
 
     /**
      * Configures Jenkins with a single issuer whose JWKS comes from the given Keycloak realm.
