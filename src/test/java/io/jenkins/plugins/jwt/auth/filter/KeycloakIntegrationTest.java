@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import hudson.security.FullControlOnceLoggedInAuthorizationStrategy;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,6 +28,7 @@ class KeycloakIntegrationTest {
 
     private static final String REALM = "jenkins-test";
     private static final String CLIENT_ID = "jenkins";
+    // Intentionally simple credentials used only within the isolated test container
     private static final String TEST_USERNAME = "testuser";
     private static final String TEST_PASSWORD = "testpass";
 
@@ -97,8 +100,10 @@ class KeycloakIntegrationTest {
      */
     private String getAccessToken() throws Exception {
         String tokenUrl = keycloak.getAuthServerUrl() + "/realms/" + REALM + "/protocol/openid-connect/token";
-        String requestBody = "grant_type=password&client_id=" + CLIENT_ID + "&username=" + TEST_USERNAME + "&password="
-                + TEST_PASSWORD;
+        String requestBody = "grant_type=password"
+                + "&client_id=" + URLEncoder.encode(CLIENT_ID, StandardCharsets.UTF_8)
+                + "&username=" + URLEncoder.encode(TEST_USERNAME, StandardCharsets.UTF_8)
+                + "&password=" + URLEncoder.encode(TEST_PASSWORD, StandardCharsets.UTF_8);
 
         HttpClient httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -137,7 +142,7 @@ class KeycloakIntegrationTest {
      * Extracts a string field value from a JSON object using a simple regex.
      */
     private static String extractJsonField(String json, String fieldName) {
-        Pattern pattern = Pattern.compile("\"" + fieldName + "\"\\s*:\\s*\"([^\"]+)\"");
+        Pattern pattern = Pattern.compile("\"" + Pattern.quote(fieldName) + "\"\\s*:\\s*\"([^\"]+)\"");
         Matcher matcher = pattern.matcher(json);
         if (matcher.find()) {
             return matcher.group(1);
