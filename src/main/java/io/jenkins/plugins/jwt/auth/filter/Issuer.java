@@ -33,9 +33,18 @@ public class Issuer implements Describable<Issuer> {
     private static final AntPathMatcher ANT_MATCHER = new AntPathMatcher();
     private static final String PATH_SEPARATOR = ",";
 
+    public static final String DEFAULT_USERNAME_CLAIM = "preferred_username";
+    public static final String DEFAULT_NAME_CLAIM = "name";
+    public static final String DEFAULT_EMAIL_CLAIM = "email";
+    public static final String DEFAULT_GROUPS_CLAIM = "groups";
+
     private String jwksUrl;
     private String allowedAudience;
     private String protectedPaths;
+    private String usernameClaim;
+    private String nameClaim;
+    private String emailClaim;
+    private String groupsClaim;
 
     @DataBoundConstructor
     public Issuer() {}
@@ -71,6 +80,58 @@ public class Issuer implements Describable<Issuer> {
     @DataBoundSetter
     public void setProtectedPaths(String protectedPaths) {
         this.protectedPaths = protectedPaths;
+    }
+
+    public String getUsernameClaim() {
+        return usernameClaim;
+    }
+
+    @DataBoundSetter
+    public void setUsernameClaim(String usernameClaim) {
+        this.usernameClaim = usernameClaim;
+    }
+
+    public String getEffectiveUsernameClaim() {
+        return (usernameClaim != null && !usernameClaim.trim().isEmpty()) ? usernameClaim : DEFAULT_USERNAME_CLAIM;
+    }
+
+    public String getNameClaim() {
+        return nameClaim;
+    }
+
+    @DataBoundSetter
+    public void setNameClaim(String nameClaim) {
+        this.nameClaim = nameClaim;
+    }
+
+    public String getEffectiveNameClaim() {
+        return (nameClaim != null && !nameClaim.trim().isEmpty()) ? nameClaim : DEFAULT_NAME_CLAIM;
+    }
+
+    public String getEmailClaim() {
+        return emailClaim;
+    }
+
+    @DataBoundSetter
+    public void setEmailClaim(String emailClaim) {
+        this.emailClaim = emailClaim;
+    }
+
+    public String getEffectiveEmailClaim() {
+        return (emailClaim != null && !emailClaim.trim().isEmpty()) ? emailClaim : DEFAULT_EMAIL_CLAIM;
+    }
+
+    public String getGroupsClaim() {
+        return groupsClaim;
+    }
+
+    @DataBoundSetter
+    public void setGroupsClaim(String groupsClaim) {
+        this.groupsClaim = groupsClaim;
+    }
+
+    public String getEffectiveGroupsClaim() {
+        return (groupsClaim != null && !groupsClaim.trim().isEmpty()) ? groupsClaim : DEFAULT_GROUPS_CLAIM;
     }
 
     /**

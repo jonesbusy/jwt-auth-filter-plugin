@@ -35,6 +35,22 @@ class ConfigurationAsCodeTest {
                 "/mcp/**",
                 issuer1.getProtectedPaths(),
                 "First issuer protected paths should be loaded from configuration-as-code.yml");
+        assertEquals(
+                "sub",
+                issuer1.getUsernameClaim(),
+                "First issuer username claim should be loaded from configuration-as-code.yml");
+        assertEquals(
+                "full_name",
+                issuer1.getNameClaim(),
+                "First issuer name claim should be loaded from configuration-as-code.yml");
+        assertEquals(
+                "mail",
+                issuer1.getEmailClaim(),
+                "First issuer email claim should be loaded from configuration-as-code.yml");
+        assertEquals(
+                "roles",
+                issuer1.getGroupsClaim(),
+                "First issuer groups claim should be loaded from configuration-as-code.yml");
 
         // Verify second issuer
         Issuer issuer2 = issuers.get(1);
@@ -50,5 +66,9 @@ class ConfigurationAsCodeTest {
                 "/**/api/**",
                 issuer2.getProtectedPaths(),
                 "Second issuer protected paths should be loaded from configuration-as-code.yml");
+        assertNull(issuer2.getUsernameClaim(), "Second issuer username claim should be null (use default)");
+        assertNull(issuer2.getNameClaim(), "Second issuer name claim should be null (use default)");
+        assertNull(issuer2.getEmailClaim(), "Second issuer email claim should be null (use default)");
+        assertNull(issuer2.getGroupsClaim(), "Second issuer groups claim should be null (use default)");
     }
 }

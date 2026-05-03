@@ -60,6 +60,11 @@ class JwtBearerTokenFilterConfigurationTest {
         // Create test issuers
         Issuer issuer1 = new Issuer(
                 "https://keycloak.example.com/realms/test/protocol/openid-connect/certs", "test-jenkins", "/**/api/**");
+        issuer1.setUsernameClaim("sub");
+        issuer1.setNameClaim("full_name");
+        issuer1.setEmailClaim("mail");
+        issuer1.setGroupsClaim("roles");
+
         Issuer issuer2 = new Issuer(
                 "https://keycloak2.example.com/realms/test/protocol/openid-connect/certs", "test-jenkins2", "/mcp/**");
         List<Issuer> testIssuers = Arrays.asList(issuer1, issuer2);
@@ -81,6 +86,10 @@ class JwtBearerTokenFilterConfigurationTest {
                 "https://keycloak.example.com/realms/test/protocol/openid-connect/certs", savedIssuer1.getJwksUrl());
         assertEquals("test-jenkins", savedIssuer1.getAllowedAudience());
         assertEquals("/**/api/**", savedIssuer1.getProtectedPaths());
+        assertEquals("sub", savedIssuer1.getUsernameClaim());
+        assertEquals("full_name", savedIssuer1.getNameClaim());
+        assertEquals("mail", savedIssuer1.getEmailClaim());
+        assertEquals("roles", savedIssuer1.getGroupsClaim());
 
         Issuer savedIssuer2 = savedIssuers.get(1);
         assertEquals(

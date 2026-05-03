@@ -9,7 +9,19 @@
   <f:entry title="Protected paths" field="protectedPaths" description="Comma separated Ant-style patterns to match protected paths">
     <f:textbox default="/**/api/**" checkMethod="post"/>
   </f:entry>
-  <f:advanced>
+  <f:advanced title="Claims Configuration">
+    <f:entry title="Username claim" field="usernameClaim" description="JWT claim name for the username. Defaults to 'preferred_username' if not set.">
+      <f:textbox default="preferred_username"/>
+    </f:entry>
+    <f:entry title="Name claim" field="nameClaim" description="JWT claim name for the full name. Defaults to 'name' if not set.">
+      <f:textbox default="name"/>
+    </f:entry>
+    <f:entry title="Email claim" field="emailClaim" description="JWT claim name for the email address. Defaults to 'email' if not set.">
+      <f:textbox default="email"/>
+    </f:entry>
+    <f:entry title="Groups claim" field="groupsClaim" description="JWT claim name for the groups/roles list. Defaults to 'groups' if not set.">
+      <f:textbox default="groups"/>
+    </f:entry>
     <f:entry title="Test path" field="testPath">
       <f:textbox default="/whoAmI/api/json"/>
     </f:entry>
