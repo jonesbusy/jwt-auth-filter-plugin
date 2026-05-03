@@ -302,16 +302,16 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
                 LOG.info("JWT token validated successfully with issuer: {}", issuer.getJwksUrl());
 
                 // Extract user information
-                String username = extractUsername(claimsSet);
+                String username = extractUsername(claimsSet, issuer);
                 if (username == null || username.isEmpty()) {
                     LOG.warn("Unable to extract username from JWT token");
                     continue; // Try next issuer
                 }
-                String name = extractName(claimsSet);
-                String email = extractEmail(claimsSet);
+                String name = extractName(claimsSet, issuer);
+                String email = extractEmail(claimsSet, issuer);
 
                 // Extract authorities/groups
-                Collection<GrantedAuthority> authorities = extractAuthorities(claimsSet);
+                Collection<GrantedAuthority> authorities = extractAuthorities(claimsSet, issuer);
                 LOG.debug("Extracted username: {} with {} authorities", username, authorities.size());
 
                 // Create or update Jenkins user
@@ -370,53 +370,53 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
     }
 
     /**
-     * Extracts username from JWT claims using OIDC realm configuration.
+     * Extracts username from JWT claims using configured claim name.
      */
-    private String extractUsername(JWTClaimsSet claimsSet) {
+    private String extractUsername(JWTClaimsSet claimsSet, Issuer issuer) {
         try {
-            Object username = claimsSet.getClaim("preferred_username");
+            Object username = claimsSet.getClaim(issuer.getEffectiveUsernameClaim());
             return username != null ? username.toString() : null;
         } catch (Exception e) {
-            LOG.debug("Failed to extract preferred_username from JWT", e);
+            LOG.debug("Failed to extract {} from JWT", issuer.getEffectiveUsernameClaim(), e);
             return null;
         }
     }
 
     /**
-     * Extracts username from JWT claims using OIDC realm configuration.
+     * Extracts email from JWT claims using configured claim name.
      */
-    private String extractEmail(JWTClaimsSet claimsSet) {
+    private String extractEmail(JWTClaimsSet claimsSet, Issuer issuer) {
         try {
-            Object email = claimsSet.getClaim("email");
+            Object email = claimsSet.getClaim(issuer.getEffectiveEmailClaim());
             return email != null ? email.toString() : null;
         } catch (Exception e) {
-            LOG.debug("Failed to extract email from JWT", e);
+            LOG.debug("Failed to extract {} from JWT", issuer.getEffectiveEmailClaim(), e);
             return null;
         }
     }
 
     /**
-     * Extracts name from JWT claims using OIDC realm configuration.
+     * Extracts name from JWT claims using configured claim name.
      */
-    private String extractName(JWTClaimsSet claimsSet) {
+    private String extractName(JWTClaimsSet claimsSet, Issuer issuer) {
         try {
-            Object username = claimsSet.getClaim("name");
-            return username != null ? username.toString() : null;
+            Object nameValue = claimsSet.getClaim(issuer.getEffectiveNameClaim());
+            return nameValue != null ? nameValue.toString() : null;
         } catch (Exception e) {
-            LOG.debug("Failed to extract name from JWT", e);
+            LOG.debug("Failed to extract {} from JWT", issuer.getEffectiveNameClaim(), e);
             return null;
         }
     }
 
     /**
-     * Extracts authorities/groups from JWT claims using OIDC realm configuration.
+     * Extracts authorities/groups from JWT claims using configured claim name.
      */
-    private Collection<GrantedAuthority> extractAuthorities(JWTClaimsSet claimsSet) {
+    private Collection<GrantedAuthority> extractAuthorities(JWTClaimsSet claimsSet, Issuer issuer) {
         Set<GrantedAuthority> authorities = new HashSet<>();
 
         try {
             // Get groups
-            Object groupsClaim = claimsSet.getClaim("groups");
+            Object groupsClaim = claimsSet.getClaim(issuer.getEffectiveGroupsClaim());
             @SuppressWarnings("unchecked")
             List<String> groups = (List<String>) groupsClaim;
             authorities.addAll(groups.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toSet()));
