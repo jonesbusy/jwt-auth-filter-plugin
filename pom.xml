@@ -71,14 +71,8 @@
     <dependency>
       <groupId>com.github.dasniko</groupId>
       <artifactId>testcontainers-keycloak</artifactId>
-      <version>3.4.0</version>
+      <version>4.2.1</version>
       <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>io.quarkus</groupId>
-          <artifactId>quarkus-junit4-mock</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.jenkins.configuration-as-code</groupId>
