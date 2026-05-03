@@ -45,6 +45,10 @@ security:
       - jwksUrl: "https://keycloak-casc-test.other.com/realms/jenkins/protocol/openid-connect/certs"
         allowedAudience: "jenkins-casc-test2"
         protectedPaths: "/**/api/**"
+        usernameClaim: "sub"
+        nameClaim: "full_name"
+        emailClaim: "mail"
+        groupsClaim: "roles"
 ```
 
 For manual tests you can use following commands to request a token and use it to access the API:
