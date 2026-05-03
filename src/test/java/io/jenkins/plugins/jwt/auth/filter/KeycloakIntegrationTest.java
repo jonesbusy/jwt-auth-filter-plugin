@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -27,6 +28,7 @@ import org.testcontainers.utility.DockerImageName;
  * Two realms are imported into a single Keycloak container to cover multi-issuer scenarios.
  */
 @WithJenkins
+@Testcontainers(disabledWithoutDocker = true)
 class KeycloakIntegrationTest {
 
     private static final String REALM_1 = "jenkins-test";
@@ -47,11 +49,11 @@ class KeycloakIntegrationTest {
 
     @BeforeAll
     static void startKeycloak() {
-        keycloak = new KeycloakContainer(DockerImageName.parse("quay.io/keycloak/keycloak:26.6"))
-                .withRealmImportFile("keycloak-test-realm.json")
-                .withRealmImportFile("keycloak-test-realm2.json")
+        keycloak = new KeycloakContainer(DockerImageName.parse("quay.io/keycloak/keycloak:26.6.1"))
+                .withRealmImportFile("jenkins-test.json")
+                .withRealmImportFile("jenkins-test-2.json")
                 .withStartupAttempts(3)
-                .withStartupTimeout(Duration.ofMinutes(3));
+                .withStartupTimeout(Duration.ofMinutes(1));
         keycloak.start();
     }
 
