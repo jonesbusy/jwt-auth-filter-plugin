@@ -22,7 +22,9 @@
     <f:entry title="Groups claim" field="groupsClaim" description="JWT claim name for the groups/roles list. Defaults to 'groups' if not set.">
       <f:textbox default="groups"/>
     </f:entry>
-    <f:entry title="Test path" field="testPath">
+  </f:advanced>
+  <f:advanced title="Path Testing">
+    <f:entry title="Test path" field="testPath" description="Test whether a path matches the protected paths pattern above.">
       <f:textbox default="/whoAmI/api/json"/>
     </f:entry>
     <f:entry>
