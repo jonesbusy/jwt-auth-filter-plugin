@@ -18,7 +18,9 @@ public class ProtectedResourceChallengeFilter implements HttpServletFilter {
             return false;
         }
 
-        if (!config.isProtectedResource(httpRequest.getRequestURI(), httpRequest.getContextPath())) {
+        ProtectedResourceMetadata protectedResource =
+                config.findProtectedResource(httpRequest.getRequestURI(), httpRequest.getContextPath());
+        if (protectedResource == null) {
             return false;
         }
 
@@ -27,7 +29,7 @@ public class ProtectedResourceChallengeFilter implements HttpServletFilter {
             return false;
         }
 
-        String metadataUrl = config.getProtectedResourceMetadataUrl();
+        String metadataUrl = config.getProtectedResourceMetadataUrl(protectedResource);
         if (metadataUrl == null || metadataUrl.isBlank() || metadataUrl.contains("\r") || metadataUrl.contains("\n")) {
             return false;
         }

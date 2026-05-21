@@ -9,17 +9,17 @@ This is not a security realm plugin, but it set a user principal and authorities
 This plugin only cares about 'Bearer' token in the `Authorization` header that are JWTs.
 
 If validation fails for any reason (invalid token, expired, wrong audience, etc) the filter will ignore the token and let the request continue for other filers.
-When `authorizationServer` and `protectedResources` are configured, a dedicated challenge filter adds:
+When `protectedResources` are configured with per-resource metadata, a dedicated challenge filter adds:
 
 ```text
-WWW-Authenticate: Bearer resource_metadata="<jenkins-root>/.well-known/oauth-protected-resource"
+WWW-Authenticate: Bearer resource_metadata="<jenkins-root>/.well-known/oauth-protected-resource/<resource-path>"
 ```
 
 for exact-match protected resource paths when no bearer token is present.
 
 This means "HTTP basic authentication" is still possible (via username/password or username/api-token).
 
-When `authorizationServer` is configured, the plugin exposes `/.well-known/oauth-protected-resource` with OAuth 2.0 Protected Resource Metadata (RFC 9728).
+The plugin exposes `/.well-known/oauth-protected-resource/<resource-path>` with OAuth 2.0 Protected Resource Metadata (RFC 9728), resolved from the exact protected resource path.
 
 ## Limitations
 
@@ -44,14 +44,15 @@ Or via JCasC
 ```yaml
 security:
   jwtBearer:
-    authorizationServer: "https://auth.example.com"
-    resource: "https://resource.example.com/mcp"
-    scopesSupported:
-      - "mcp:read"
-      - "mcp:write"
     protectedResources:
-      - "/mcp"
-      - "/me"
+      - path: "/mcp"
+        authorizationServer: "https://auth.example.com"
+        resource: "https://resource.example.com/mcp"
+        scopesSupported:
+          - "mcp:read"
+          - "mcp:write"
+      - path: "/me"
+        authorizationServer: "https://auth2.example.com"
     issuers:
       - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
         allowedAudience: "jenkins-casc-test2"

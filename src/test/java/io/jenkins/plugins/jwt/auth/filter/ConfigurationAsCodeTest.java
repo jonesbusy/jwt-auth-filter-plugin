@@ -16,22 +16,29 @@ class ConfigurationAsCodeTest {
     void shouldSupportConfigurationAsCode(JenkinsConfiguredWithCodeRule jenkinsRule) {
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         assertNotNull(config, "Configuration instance should not be null");
+        List<ProtectedResourceMetadata> protectedResources = config.getProtectedResources();
+        assertEquals(2, protectedResources.size(), "Protected resources should be loaded from configuration-as-code.yml");
+        assertEquals("/mcp", protectedResources.get(0).getPath(), "First protected resource path should match");
         assertEquals(
                 "https://auth.example.com",
-                config.getAuthorizationServer(),
-                "Authorization server should be loaded from configuration-as-code.yml");
+                protectedResources.get(0).getAuthorizationServer(),
+                "First protected resource auth server should match");
         assertEquals(
                 "https://resource.example.com/mcp",
-                config.getResource(),
-                "Resource should be loaded from configuration-as-code.yml");
+                protectedResources.get(0).getResource(),
+                "First protected resource resource URI should match");
         assertEquals(
                 List.of("mcp:read", "mcp:write"),
-                config.getScopesSupported(),
-                "Scopes should be loaded from configuration-as-code.yml");
+                protectedResources.get(0).getScopesSupported(),
+                "First protected resource scopes should match");
+        assertEquals("/me", protectedResources.get(1).getPath(), "Second protected resource path should match");
         assertEquals(
-                List.of("/mcp", "/me"),
-                config.getProtectedResources(),
-                "Protected resources should be loaded from configuration-as-code.yml");
+                "https://auth2.example.com",
+                protectedResources.get(1).getAuthorizationServer(),
+                "Second protected resource auth server should match");
+        assertTrue(
+                protectedResources.get(1).getScopesSupported().isEmpty(),
+                "Second protected resource should have empty scopes");
 
         List<Issuer> issuers = config.getIssuers();
         assertNotNull(issuers, "Issuers should not be null");
