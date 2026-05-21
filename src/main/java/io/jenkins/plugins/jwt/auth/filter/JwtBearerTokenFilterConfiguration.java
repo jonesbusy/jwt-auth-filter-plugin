@@ -68,7 +68,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     }
 
     public List<ProtectedResourceMetadata> getProtectedResources() {
-        return protectedResources != null ? protectedResources : new ArrayList<>();
+        return protectedResources != null ? new ArrayList<>(protectedResources) : new ArrayList<>();
     }
 
     @DataBoundSetter
@@ -88,10 +88,11 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         if (isNonBlank(protectedResourceMetadata.getResource())) {
             return trimTrailingSlash(protectedResourceMetadata.getResource().trim());
         }
-        String rootUrl = trimTrailingSlash(Jenkins.get().getRootUrl());
+        String rootUrl = Jenkins.get().getRootUrl();
         if (!isNonBlank(rootUrl)) {
             return null;
         }
+        rootUrl = trimTrailingSlash(rootUrl);
         String normalizedProtectedPath = normalizePath(protectedResourceMetadata.getPath());
         if ("/".equals(normalizedProtectedPath)) {
             return rootUrl;
@@ -103,10 +104,11 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         if (protectedResourceMetadata == null) {
             return null;
         }
-        String rootUrl = trimTrailingSlash(Jenkins.get().getRootUrl());
+        String rootUrl = Jenkins.get().getRootUrl();
         if (!isNonBlank(rootUrl)) {
             return null;
         }
+        rootUrl = trimTrailingSlash(rootUrl);
         String normalizedProtectedPath = normalizePath(protectedResourceMetadata.getPath());
         if ("/".equals(normalizedProtectedPath)) {
             return rootUrl + "/" + ProtectedResourceMetadataAction.WELL_KNOWN_PATH;
@@ -150,7 +152,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
 
     private static String trimTrailingSlash(String value) {
         if (!isNonBlank(value)) {
-            return value;
+            return "";
         }
         String trimmedValue = value;
         while (trimmedValue.endsWith("/") && trimmedValue.length() > 1) {

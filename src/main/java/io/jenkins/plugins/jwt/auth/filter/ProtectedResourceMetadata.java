@@ -45,7 +45,7 @@ public class ProtectedResourceMetadata {
     }
 
     public List<String> getScopesSupported() {
-        return scopesSupported != null ? scopesSupported : new ArrayList<>();
+        return scopesSupported != null ? new ArrayList<>(scopesSupported) : new ArrayList<>();
     }
 
     @DataBoundSetter
