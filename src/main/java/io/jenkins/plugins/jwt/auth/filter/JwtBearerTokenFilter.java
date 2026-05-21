@@ -76,6 +76,7 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
         // If not, just continue the filters
         String authHeader = httpRequest.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            addProtectedResourceChallengeHeader(httpResponse, config);
             return false;
         }
 
@@ -97,7 +98,20 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
 
         // Continue filters
         LOG.warn("JWT Bearer token validation failed - continuing with normal auth");
+        addProtectedResourceChallengeHeader(httpResponse, config);
         return false;
+    }
+
+    private void addProtectedResourceChallengeHeader(
+            HttpServletResponse httpResponse, JwtBearerTokenFilterConfiguration config) {
+        if (config == null || !config.isProtectedResourceMetadataEnabled()) {
+            return;
+        }
+        String metadataUrl = config.getProtectedResourceMetadataUrl();
+        if (metadataUrl == null || metadataUrl.isBlank()) {
+            return;
+        }
+        httpResponse.setHeader("WWW-Authenticate", "Bearer resource_metadata=\"" + metadataUrl + "\"");
     }
 
     /**

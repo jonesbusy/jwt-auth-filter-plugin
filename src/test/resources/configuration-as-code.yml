@@ -1,5 +1,10 @@
 security:
   jwtBearer:
+    authorizationServer: "https://auth.example.com"
+    resource: "https://resource.example.com/mcp"
+    scopesSupported:
+      - "mcp:read"
+      - "mcp:write"
     issuers:
       - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
         allowedAudience: "jenkins-casc-test2"

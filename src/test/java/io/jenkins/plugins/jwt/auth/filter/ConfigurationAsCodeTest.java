@@ -16,6 +16,18 @@ class ConfigurationAsCodeTest {
     void shouldSupportConfigurationAsCode(JenkinsConfiguredWithCodeRule jenkinsRule) {
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         assertNotNull(config, "Configuration instance should not be null");
+        assertEquals(
+                "https://auth.example.com",
+                config.getAuthorizationServer(),
+                "Authorization server should be loaded from configuration-as-code.yml");
+        assertEquals(
+                "https://resource.example.com/mcp",
+                config.getResource(),
+                "Resource should be loaded from configuration-as-code.yml");
+        assertEquals(
+                List.of("mcp:read", "mcp:write"),
+                config.getScopesSupported(),
+                "Scopes should be loaded from configuration-as-code.yml");
 
         List<Issuer> issuers = config.getIssuers();
         assertNotNull(issuers, "Issuers should not be null");

@@ -33,6 +33,9 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     private static final Logger LOG = LoggerFactory.getLogger(JwtBearerTokenFilterConfiguration.class);
 
     private List<Issuer> issuers;
+    private String authorizationServer;
+    private String resource;
+    private List<String> scopesSupported;
     private static final AntPathMatcher ANT_MATCHER = new AntPathMatcher();
     private static final String PATH_SEPARATOR = ",";
 
@@ -64,6 +67,60 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     @DataBoundSetter
     public void setIssuers(List<Issuer> issuers) {
         this.issuers = issuers != null ? new ArrayList<>(issuers) : new ArrayList<>();
+    }
+
+    public String getAuthorizationServer() {
+        return authorizationServer;
+    }
+
+    @DataBoundSetter
+    public void setAuthorizationServer(String authorizationServer) {
+        this.authorizationServer = authorizationServer;
+    }
+
+    public String getResource() {
+        return resource;
+    }
+
+    @DataBoundSetter
+    public void setResource(String resource) {
+        this.resource = resource;
+    }
+
+    public List<String> getScopesSupported() {
+        return scopesSupported != null ? scopesSupported : new ArrayList<>();
+    }
+
+    @DataBoundSetter
+    public void setScopesSupported(List<String> scopesSupported) {
+        this.scopesSupported = scopesSupported != null ? new ArrayList<>(scopesSupported) : new ArrayList<>();
+    }
+
+    public boolean isProtectedResourceMetadataEnabled() {
+        return authorizationServer != null && !authorizationServer.trim().isEmpty();
+    }
+
+    public String getEffectiveResource() {
+        if (resource != null && !resource.trim().isEmpty()) {
+            return trimTrailingSlash(resource.trim());
+        }
+        String rootUrl = Jenkins.get().getRootUrl();
+        if (rootUrl != null && !rootUrl.trim().isEmpty()) {
+            return trimTrailingSlash(rootUrl.trim());
+        }
+        return null;
+    }
+
+    public String getProtectedResourceMetadataUrl() {
+        String rootUrl = Jenkins.get().getRootUrl();
+        if (rootUrl == null || rootUrl.trim().isEmpty()) {
+            return null;
+        }
+        return trimTrailingSlash(rootUrl.trim()) + "/" + ProtectedResourceMetadataAction.WELL_KNOWN_PATH;
+    }
+
+    private static String trimTrailingSlash(String value) {
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 
     @Override
