@@ -9,13 +9,13 @@ This is not a security realm plugin, but it set a user principal and authorities
 This plugin only cares about 'Bearer' token in the `Authorization` header that are JWTs.
 
 If validation fails for any reason (invalid token, expired, wrong audience, etc) the filter will ignore the token and let the request continue for other filers.
-When `authorizationServer` is configured, the filter also adds:
+When `authorizationServer` and `protectedResources` are configured, a dedicated challenge filter adds:
 
 ```text
 WWW-Authenticate: Bearer resource_metadata="<jenkins-root>/.well-known/oauth-protected-resource"
 ```
 
-for protected paths when no valid bearer token is present.
+for exact-match protected resource paths when no bearer token is present.
 
 This means "HTTP basic authentication" is still possible (via username/password or username/api-token).
 
@@ -49,6 +49,9 @@ security:
     scopesSupported:
       - "mcp:read"
       - "mcp:write"
+    protectedResources:
+      - "/mcp"
+      - "/me"
     issuers:
       - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
         allowedAudience: "jenkins-casc-test2"

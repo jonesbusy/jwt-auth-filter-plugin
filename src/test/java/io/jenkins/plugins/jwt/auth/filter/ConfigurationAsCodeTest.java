@@ -28,6 +28,10 @@ class ConfigurationAsCodeTest {
                 List.of("mcp:read", "mcp:write"),
                 config.getScopesSupported(),
                 "Scopes should be loaded from configuration-as-code.yml");
+        assertEquals(
+                List.of("/mcp", "/me"),
+                config.getProtectedResources(),
+                "Protected resources should be loaded from configuration-as-code.yml");
 
         List<Issuer> issuers = config.getIssuers();
         assertNotNull(issuers, "Issuers should not be null");

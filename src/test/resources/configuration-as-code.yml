@@ -5,6 +5,9 @@ security:
     scopesSupported:
       - "mcp:read"
       - "mcp:write"
+    protectedResources:
+      - "/mcp"
+      - "/me"
     issuers:
       - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
         allowedAudience: "jenkins-casc-test2"

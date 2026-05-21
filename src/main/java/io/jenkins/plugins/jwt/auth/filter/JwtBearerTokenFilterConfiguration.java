@@ -36,6 +36,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     private String authorizationServer;
     private String resource;
     private List<String> scopesSupported;
+    private List<String> protectedResources;
     private static final AntPathMatcher ANT_MATCHER = new AntPathMatcher();
     private static final String PATH_SEPARATOR = ",";
 
@@ -96,8 +97,18 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         this.scopesSupported = scopesSupported != null ? new ArrayList<>(scopesSupported) : new ArrayList<>();
     }
 
+    public List<String> getProtectedResources() {
+        return protectedResources != null ? protectedResources : new ArrayList<>();
+    }
+
+    @DataBoundSetter
+    public void setProtectedResources(List<String> protectedResources) {
+        this.protectedResources =
+                protectedResources != null ? new ArrayList<>(protectedResources) : new ArrayList<>();
+    }
+
     public boolean isProtectedResourceMetadataEnabled() {
-        return isNonBlank(authorizationServer);
+        return isNonBlank(authorizationServer) && !getProtectedResources().isEmpty();
     }
 
     public String getEffectiveResource() {
@@ -119,6 +130,19 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         return trimTrailingSlash(rootUrl.trim()) + "/" + ProtectedResourceMetadataAction.WELL_KNOWN_PATH;
     }
 
+    public boolean isProtectedResource(String requestURI, String contextPath) {
+        String normalizedRequestPath = normalizePath(requestURI);
+        if (isNonBlank(contextPath) && normalizedRequestPath.startsWith(contextPath)) {
+            normalizedRequestPath = normalizePath(normalizedRequestPath.substring(contextPath.length()));
+        }
+        for (String protectedResourcePath : getProtectedResources()) {
+            if (normalizePath(protectedResourcePath).equals(normalizedRequestPath)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean isNonBlank(String value) {
         return value != null && !value.trim().isEmpty();
     }
@@ -129,6 +153,17 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
             trimmedValue = trimmedValue.substring(0, trimmedValue.length() - 1);
         }
         return trimmedValue;
+    }
+
+    private static String normalizePath(String value) {
+        if (!isNonBlank(value)) {
+            return "/";
+        }
+        String normalizedValue = value.trim();
+        if (!normalizedValue.startsWith("/")) {
+            normalizedValue = "/" + normalizedValue;
+        }
+        return trimTrailingSlash(normalizedValue);
     }
 
     @Override

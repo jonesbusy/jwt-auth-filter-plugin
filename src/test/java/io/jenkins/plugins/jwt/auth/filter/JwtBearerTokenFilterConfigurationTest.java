@@ -97,4 +97,15 @@ class JwtBearerTokenFilterConfigurationTest {
         assertEquals("test-jenkins2", savedIssuer2.getAllowedAudience());
         assertEquals("/mcp/**", savedIssuer2.getProtectedPaths());
     }
+
+    @Test
+    void shouldMatchProtectedResourcesWithExactPathOnly(JenkinsRule jenkinsRule) {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        config.setProtectedResources(List.of("/mcp", "/me"));
+
+        assertTrue(config.isProtectedResource("/jenkins/mcp", "/jenkins"));
+        assertTrue(config.isProtectedResource("/jenkins/me", "/jenkins"));
+        assertFalse(config.isProtectedResource("/jenkins/mcp/child", "/jenkins"));
+        assertFalse(config.isProtectedResource("/jenkins/api/json", "/jenkins"));
+    }
 }
