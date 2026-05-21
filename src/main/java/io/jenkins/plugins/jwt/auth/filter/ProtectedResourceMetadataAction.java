@@ -38,9 +38,14 @@ public class ProtectedResourceMetadataAction implements UnprotectedRootAction {
             return HttpResponses.errorJSON("resource is not configured and Jenkins root URL is unavailable");
         }
 
+        String authorizationServer = config.getAuthorizationServer();
+        if (authorizationServer == null || authorizationServer.isBlank()) {
+            return HttpResponses.notFound();
+        }
+
         JSONObject metadata = new JSONObject();
         metadata.put("resource", resource);
-        metadata.put("authorization_servers", List.of(config.getAuthorizationServer()));
+        metadata.put("authorization_servers", List.of(authorizationServer.trim()));
         List<String> scopesSupported = config.getScopesSupported();
         if (!scopesSupported.isEmpty()) {
             metadata.put("scopes_supported", scopesSupported);

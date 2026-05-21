@@ -97,15 +97,15 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     }
 
     public boolean isProtectedResourceMetadataEnabled() {
-        return authorizationServer != null && !authorizationServer.trim().isEmpty();
+        return isNonBlank(authorizationServer);
     }
 
     public String getEffectiveResource() {
-        if (resource != null && !resource.trim().isEmpty()) {
+        if (isNonBlank(resource)) {
             return trimTrailingSlash(resource.trim());
         }
         String rootUrl = Jenkins.get().getRootUrl();
-        if (rootUrl != null && !rootUrl.trim().isEmpty()) {
+        if (isNonBlank(rootUrl)) {
             return trimTrailingSlash(rootUrl.trim());
         }
         return null;
@@ -113,14 +113,22 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
 
     public String getProtectedResourceMetadataUrl() {
         String rootUrl = Jenkins.get().getRootUrl();
-        if (rootUrl == null || rootUrl.trim().isEmpty()) {
+        if (!isNonBlank(rootUrl)) {
             return null;
         }
         return trimTrailingSlash(rootUrl.trim()) + "/" + ProtectedResourceMetadataAction.WELL_KNOWN_PATH;
     }
 
+    private static boolean isNonBlank(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
     private static String trimTrailingSlash(String value) {
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+        String trimmedValue = value;
+        while (trimmedValue.endsWith("/") && trimmedValue.length() > 1) {
+            trimmedValue = trimmedValue.substring(0, trimmedValue.length() - 1);
+        }
+        return trimmedValue;
     }
 
     @Override
