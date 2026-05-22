@@ -39,6 +39,29 @@ This can be adapted, assuming you have a plugin that expose '/mcp' endpoint. You
 
 ![config](docs/config.png)
 
+Protected resources (RFC 9728) are optional and depends if you only validate JWT token or have a client that perform the authorization code flow and need to discover the authorization server metadata and supported scopes.
+
+![protected resource](docs/protected_resource.png)
+
+Adding a protected resource will
+
+Return 401 with `WWW-Authenticate: Bearer resource_metadata="<jenkins-root>/.well-known/oauth-protected-resource/<resource>"` for requests without a Bearer token to `/<resource>` endpoint.
+
+Querying the `/.well-known/oauth-protected-resource/<resource>` endpoint will return the protected resource metadata with the configured authorization server and supported scopes.
+
+Example response:
+
+```json
+{
+  "authorization_server": "https://auth.example.com",
+  "resource": "http://localhost:8080/jenkins/mcp-server/mcp"
+  "scopes_supported": [
+    "mcp:read",
+    "mcp:write"
+  ]
+}
+```
+
 Or via JCasC
 
 ```yaml
