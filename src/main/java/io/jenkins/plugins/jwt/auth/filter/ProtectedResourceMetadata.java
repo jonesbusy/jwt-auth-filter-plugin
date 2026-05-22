@@ -1,11 +1,15 @@
 package io.jenkins.plugins.jwt.auth.filter;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.Extension;
+import hudson.model.AbstractDescribableImpl;
+import hudson.model.Descriptor;
 import java.util.ArrayList;
 import java.util.List;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-public class ProtectedResourceMetadata {
+public class ProtectedResourceMetadata extends AbstractDescribableImpl<ProtectedResourceMetadata> {
 
     private String path;
     private String authorizationServer;
@@ -51,5 +55,15 @@ public class ProtectedResourceMetadata {
     @DataBoundSetter
     public void setScopesSupported(List<String> scopesSupported) {
         this.scopesSupported = scopesSupported != null ? new ArrayList<>(scopesSupported) : new ArrayList<>();
+    }
+
+    @Extension
+    public static class DescriptorImpl extends Descriptor<ProtectedResourceMetadata> {
+
+        @NonNull
+        @Override
+        public String getDisplayName() {
+            return "Protected Resource";
+        }
     }
 }

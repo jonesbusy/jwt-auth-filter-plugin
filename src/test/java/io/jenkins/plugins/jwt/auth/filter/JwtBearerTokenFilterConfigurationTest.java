@@ -143,6 +143,21 @@ class JwtBearerTokenFilterConfigurationTest {
         assertEquals("https://jenkins.example.com/jenkins/mcp", config.getEffectiveResource(protectedResource));
     }
 
+    @Test
+    void shouldLoadConfigureSecurityPageWithProtectedResources(JenkinsRule jenkinsRule) throws Exception {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        config.setProtectedResources(List.of(protectedResource("/mcp", "https://auth.example.com")));
+        config.save();
+
+        assertEquals(
+                200,
+                jenkinsRule
+                        .createWebClient()
+                        .goTo("configureSecurity")
+                        .getWebResponse()
+                        .getStatusCode());
+    }
+
     private static ProtectedResourceMetadata protectedResource(String path, String authorizationServer) {
         ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata(path);
         protectedResourceMetadata.setAuthorizationServer(authorizationServer);
