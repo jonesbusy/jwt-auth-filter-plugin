@@ -9,4 +9,9 @@
   <f:entry title="Scopes supported" field="scopesSupportedValue" description="Optional comma-separated scopes (for example openid,profile,email,roles,offline_access).">
     <f:textbox />
   </f:entry>
+  <f:entry title="">
+    <div align="right">
+      <f:repeatableDeleteButton/>
+    </div>
+  </f:entry>
 </j:jelly>

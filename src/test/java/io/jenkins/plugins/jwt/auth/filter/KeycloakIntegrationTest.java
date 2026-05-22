@@ -188,10 +188,18 @@ class KeycloakIntegrationTest {
 
         String expectedMetadataUrl = trimTrailingSlash(jenkinsRule.getURL().toString())
                 + "/.well-known/oauth-protected-resource/whoAmI/api/json";
+        assertEquals(401, protectedResponse.statusCode(), "Protected endpoint without token should return 401");
         assertEquals(
                 "Bearer resource_metadata=\"" + expectedMetadataUrl + "\"",
                 protectedResponse.headers().firstValue("WWW-Authenticate").orElse(null),
                 "Protected endpoint should include resource metadata challenge");
+        JSONObject unauthorizedBody = JSONObject.fromObject(protectedResponse.body());
+        assertEquals(
+                "unauthorized", unauthorizedBody.getString("error"), "Error code should match unauthorized response");
+        assertEquals(
+                "Authentication required",
+                unauthorizedBody.getString("error_description"),
+                "Error description should explain authentication requirement");
         assertFalse(
                 unprotectedResponse.headers().firstValue("WWW-Authenticate").isPresent(),
                 "Unprotected endpoint should not include resource metadata challenge");

@@ -30,10 +30,18 @@ public class ProtectedResourceChallengeFilter implements HttpServletFilter {
         }
 
         String metadataUrl = config.getProtectedResourceMetadataUrl(protectedResource);
-        if (metadataUrl == null || metadataUrl.isBlank() || metadataUrl.contains("\r") || metadataUrl.contains("\n")) {
-            return false;
+        if (metadataUrl != null
+                && !metadataUrl.isBlank()
+                && !metadataUrl.contains("\r")
+                && !metadataUrl.contains("\n")) {
+            httpResponse.setHeader("WWW-Authenticate", "Bearer resource_metadata=\"" + metadataUrl + "\"");
         }
-        httpResponse.setHeader("WWW-Authenticate", "Bearer resource_metadata=\"" + metadataUrl + "\"");
-        return false;
+        httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        httpResponse.setCharacterEncoding("UTF-8");
+        httpResponse.setContentType("application/json;charset=UTF-8");
+        httpResponse
+                .getWriter()
+                .write("{\"error\":\"unauthorized\",\"error_description\":\"Authentication required\"}");
+        return true;
     }
 }
