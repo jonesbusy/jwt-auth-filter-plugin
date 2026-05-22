@@ -73,8 +73,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
 
     @DataBoundSetter
     public void setProtectedResources(List<ProtectedResourceMetadata> protectedResources) {
-        this.protectedResources =
-                protectedResources != null ? new ArrayList<>(protectedResources) : new ArrayList<>();
+        this.protectedResources = protectedResources != null ? new ArrayList<>(protectedResources) : new ArrayList<>();
     }
 
     public boolean isProtectedResourceMetadataEnabled() {
@@ -128,7 +127,8 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         String requestPath = normalizedRequestPath;
         return getProtectedResources().stream()
                 .filter(this::isMetadataConfigured)
-                .filter(resourceMetadata -> normalizePath(resourceMetadata.getPath()).equals(requestPath))
+                .filter(resourceMetadata ->
+                        normalizePath(resourceMetadata.getPath()).equals(requestPath))
                 .findFirst()
                 .orElse(null);
     }
@@ -137,7 +137,8 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         String normalizedWellKnownPath = normalizePath(wellKnownPath);
         return getProtectedResources().stream()
                 .filter(this::isMetadataConfigured)
-                .filter(resourceMetadata -> normalizePath(resourceMetadata.getPath()).equals(normalizedWellKnownPath))
+                .filter(resourceMetadata ->
+                        normalizePath(resourceMetadata.getPath()).equals(normalizedWellKnownPath))
                 .findFirst()
                 .orElse(null);
     }

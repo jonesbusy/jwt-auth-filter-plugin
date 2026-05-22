@@ -11,6 +11,7 @@ import org.kohsuke.stapler.StaplerRequest2;
 @Extension
 public class ProtectedResourceMetadataAction implements UnprotectedRootAction {
 
+    private static final String WELL_KNOWN_ROOT = ".well-known";
     static final String WELL_KNOWN_PATH = ".well-known/oauth-protected-resource";
 
     @Override
@@ -25,18 +26,37 @@ public class ProtectedResourceMetadataAction implements UnprotectedRootAction {
 
     @Override
     public String getUrlName() {
-        return WELL_KNOWN_PATH;
+        return WELL_KNOWN_ROOT;
     }
 
     public HttpResponse doIndex() {
-        return metadataResponseFor("/");
+        return HttpResponses.notFound();
     }
 
     public HttpResponse doDynamic(StaplerRequest2 request) {
-        return metadataResponseFor(request.getRestOfPath());
+        return metadataResponseFor(extractProtectedResourcePath(request));
+    }
+
+    private String extractProtectedResourcePath(StaplerRequest2 request) {
+        String requestUri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isBlank() && requestUri.startsWith(contextPath)) {
+            requestUri = requestUri.substring(contextPath.length());
+        }
+        String wellKnownPrefix = "/" + WELL_KNOWN_PATH;
+        if (requestUri.equals(wellKnownPrefix) || requestUri.equals(wellKnownPrefix + "/")) {
+            return "/";
+        }
+        if (requestUri.startsWith(wellKnownPrefix + "/")) {
+            return requestUri.substring(wellKnownPrefix.length());
+        }
+        return null;
     }
 
     private HttpResponse metadataResponseFor(String wellKnownPath) {
+        if (wellKnownPath == null) {
+            return HttpResponses.notFound();
+        }
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         if (config == null || !config.isProtectedResourceMetadataEnabled()) {
             return HttpResponses.notFound();

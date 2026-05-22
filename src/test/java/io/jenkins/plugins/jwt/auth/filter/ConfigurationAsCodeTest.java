@@ -17,7 +17,8 @@ class ConfigurationAsCodeTest {
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         assertNotNull(config, "Configuration instance should not be null");
         List<ProtectedResourceMetadata> protectedResources = config.getProtectedResources();
-        assertEquals(2, protectedResources.size(), "Protected resources should be loaded from configuration-as-code.yml");
+        assertEquals(
+                2, protectedResources.size(), "Protected resources should be loaded from configuration-as-code.yml");
         assertEquals("/mcp", protectedResources.get(0).getPath(), "First protected resource path should match");
         assertEquals(
                 "https://auth.example.com",
