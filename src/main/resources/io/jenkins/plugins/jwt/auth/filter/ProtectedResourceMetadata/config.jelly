@@ -1,0 +1,17 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="Path" field="path" description="Exact protected resource path. Use a leading '/' (for example /mcp or /me). Trailing '/' is treated as the same path.">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="Authorization server" field="authorizationServer" description="Authorization server URI for this protected resource">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="Scopes supported" field="scopesSupportedValue" description="Optional comma-separated scopes (for example openid,profile,email,roles,offline_access).">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="">
+    <div align="right">
+      <f:repeatableDeleteButton/>
+    </div>
+  </f:entry>
+</j:jelly>

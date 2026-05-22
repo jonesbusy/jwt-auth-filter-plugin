@@ -9,11 +9,17 @@ This is not a security realm plugin, but it set a user principal and authorities
 This plugin only cares about 'Bearer' token in the `Authorization` header that are JWTs.
 
 If validation fails for any reason (invalid token, expired, wrong audience, etc) the filter will ignore the token and let the request continue for other filers.
+When `protectedResources` are configured with per-resource metadata, a dedicated challenge filter adds:
+
+```text
+WWW-Authenticate: Bearer resource_metadata="<jenkins-root>/.well-known/oauth-protected-resource/<resource-path>"
+```
+
+for exact-match protected resource paths when no bearer token is present.
 
 This means "HTTP basic authentication" is still possible (via username/password or username/api-token).
 
-Future iteration of the plugin may include an option to reject directly protected resource path allowing for example to set response to comply with OAuth 2.0 Protected Resource Metadata
-RFC 9728
+The plugin exposes `/.well-known/oauth-protected-resource/<resource-path>` with OAuth 2.0 Protected Resource Metadata (RFC 9728), resolved from the exact protected resource path.
 
 ## Limitations
 
@@ -38,6 +44,14 @@ Or via JCasC
 ```yaml
 security:
   jwtBearer:
+    protectedResources:
+      - path: "/mcp"
+        authorizationServer: "https://auth.example.com"
+        scopesSupported:
+          - "mcp:read"
+          - "mcp:write"
+      - path: "/me"
+        authorizationServer: "https://auth2.example.com"
     issuers:
       - jwksUrl: "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs"
         allowedAudience: "jenkins-casc-test2"
@@ -50,6 +64,10 @@ security:
         emailClaim: "mail"
         groupsClaim: "roles"
 ```
+
+In the Jenkins UI, `Scopes supported` is a comma-separated string (for example:
+`openid,profile,email,roles,offline_access`) and is returned as
+`"scopes_supported":[...]` in the protected resource metadata response.
 
 For manual tests you can use following commands to request a token and use it to access the API:
 

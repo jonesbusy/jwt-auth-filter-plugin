@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Arrays;
 import java.util.List;
+import jenkins.model.JenkinsLocationConfiguration;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
@@ -96,5 +97,80 @@ class JwtBearerTokenFilterConfigurationTest {
                 "https://keycloak2.example.com/realms/test/protocol/openid-connect/certs", savedIssuer2.getJwksUrl());
         assertEquals("test-jenkins2", savedIssuer2.getAllowedAudience());
         assertEquals("/mcp/**", savedIssuer2.getProtectedPaths());
+    }
+
+    @Test
+    void shouldMatchProtectedResourcesWithExactPathOnly(JenkinsRule jenkinsRule) {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        config.setProtectedResources(List.of(
+                protectedResource("/mcp", "https://auth.example.com"),
+                protectedResource("/me", "https://auth2.example.com")));
+
+        assertTrue(config.isProtectedResource("/jenkins/mcp", "/jenkins"));
+        assertTrue(config.isProtectedResource("/jenkins/me", "/jenkins"));
+        assertFalse(config.isProtectedResource("/jenkins/mcp/child", "/jenkins"));
+        assertFalse(config.isProtectedResource("/jenkins/api/json", "/jenkins"));
+    }
+
+    @Test
+    void shouldResolveProtectedResourceMetadataByPath(JenkinsRule jenkinsRule) {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        config.setProtectedResources(List.of(
+                protectedResource("/mcp", "https://auth.example.com"),
+                protectedResource("/me", "https://auth2.example.com")));
+
+        ProtectedResourceMetadata mcp = config.findProtectedResource("/jenkins/mcp", "/jenkins");
+        assertNotNull(mcp);
+        assertEquals("https://auth.example.com", mcp.getAuthorizationServer());
+
+        ProtectedResourceMetadata mcpMetadata = config.getProtectedResourceMetadataForWellKnownPath("/mcp");
+        assertNotNull(mcpMetadata);
+        assertEquals("/mcp", mcpMetadata.getPath());
+
+        assertNull(config.getProtectedResourceMetadataForWellKnownPath("/mcp/child"));
+    }
+
+    @Test
+    void shouldBuildMetadataUrlsPerProtectedResource(JenkinsRule jenkinsRule) {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        ProtectedResourceMetadata protectedResource = protectedResource("/mcp", "https://auth.example.com");
+        config.setProtectedResources(List.of(protectedResource));
+        JenkinsLocationConfiguration.get().setUrl("https://jenkins.example.com/jenkins/");
+
+        assertEquals(
+                "https://jenkins.example.com/jenkins/.well-known/oauth-protected-resource/mcp",
+                config.getProtectedResourceMetadataUrl(protectedResource));
+        assertEquals("https://jenkins.example.com/jenkins/mcp", config.getEffectiveResource(protectedResource));
+    }
+
+    @Test
+    void shouldSplitScopesSupportedCommaSeparatedValue() {
+        ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata("/mcp");
+        protectedResourceMetadata.setScopesSupportedValue("openid, profile,email,roles,offline_access");
+
+        assertEquals(
+                List.of("openid", "profile", "email", "roles", "offline_access"),
+                protectedResourceMetadata.getScopesSupported());
+    }
+
+    @Test
+    void shouldLoadConfigureSecurityPageWithProtectedResources(JenkinsRule jenkinsRule) throws Exception {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        config.setProtectedResources(List.of(protectedResource("/mcp", "https://auth.example.com")));
+        config.save();
+
+        assertEquals(
+                200,
+                jenkinsRule
+                        .createWebClient()
+                        .goTo("configureSecurity")
+                        .getWebResponse()
+                        .getStatusCode());
+    }
+
+    private static ProtectedResourceMetadata protectedResource(String path, String authorizationServer) {
+        ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata(path);
+        protectedResourceMetadata.setAuthorizationServer(authorizationServer);
+        return protectedResourceMetadata;
     }
 }

@@ -16,6 +16,26 @@ class ConfigurationAsCodeTest {
     void shouldSupportConfigurationAsCode(JenkinsConfiguredWithCodeRule jenkinsRule) {
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         assertNotNull(config, "Configuration instance should not be null");
+        List<ProtectedResourceMetadata> protectedResources = config.getProtectedResources();
+        assertEquals(
+                2, protectedResources.size(), "Protected resources should be loaded from configuration-as-code.yml");
+        assertEquals("/mcp", protectedResources.get(0).getPath(), "First protected resource path should match");
+        assertEquals(
+                "https://auth.example.com",
+                protectedResources.get(0).getAuthorizationServer(),
+                "First protected resource auth server should match");
+        assertEquals(
+                List.of("mcp:read", "mcp:write"),
+                protectedResources.get(0).getScopesSupported(),
+                "First protected resource scopes should match");
+        assertEquals("/me", protectedResources.get(1).getPath(), "Second protected resource path should match");
+        assertEquals(
+                "https://auth2.example.com",
+                protectedResources.get(1).getAuthorizationServer(),
+                "Second protected resource auth server should match");
+        assertTrue(
+                protectedResources.get(1).getScopesSupported().isEmpty(),
+                "Second protected resource should have empty scopes");
 
         List<Issuer> issuers = config.getIssuers();
         assertNotNull(issuers, "Issuers should not be null");

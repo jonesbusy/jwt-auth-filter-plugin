@@ -33,6 +33,7 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     private static final Logger LOG = LoggerFactory.getLogger(JwtBearerTokenFilterConfiguration.class);
 
     private List<Issuer> issuers;
+    private List<ProtectedResourceMetadata> protectedResources;
     private static final AntPathMatcher ANT_MATCHER = new AntPathMatcher();
     private static final String PATH_SEPARATOR = ",";
 
@@ -64,6 +65,120 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
     @DataBoundSetter
     public void setIssuers(List<Issuer> issuers) {
         this.issuers = issuers != null ? new ArrayList<>(issuers) : new ArrayList<>();
+    }
+
+    public List<ProtectedResourceMetadata> getProtectedResources() {
+        return protectedResources != null ? new ArrayList<>(protectedResources) : new ArrayList<>();
+    }
+
+    @DataBoundSetter
+    public void setProtectedResources(List<ProtectedResourceMetadata> protectedResources) {
+        this.protectedResources = protectedResources != null ? new ArrayList<>(protectedResources) : new ArrayList<>();
+    }
+
+    public boolean isProtectedResourceMetadataEnabled() {
+        return getProtectedResources().stream().anyMatch(this::isMetadataConfigured);
+    }
+
+    public String getEffectiveResource(ProtectedResourceMetadata protectedResourceMetadata) {
+        if (protectedResourceMetadata == null) {
+            return null;
+        }
+        String rootUrl = Jenkins.get().getRootUrl();
+        if (!isNonBlank(rootUrl)) {
+            return null;
+        }
+        rootUrl = trimTrailingSlash(rootUrl);
+        String normalizedProtectedPath = normalizePath(protectedResourceMetadata.getPath());
+        if ("/".equals(normalizedProtectedPath)) {
+            return rootUrl + "/";
+        }
+        return rootUrl + "/" + normalizedProtectedPath.substring(1);
+    }
+
+    public String getProtectedResourceMetadataUrl(ProtectedResourceMetadata protectedResourceMetadata) {
+        if (protectedResourceMetadata == null) {
+            return null;
+        }
+        String rootUrl = Jenkins.get().getRootUrl();
+        if (!isNonBlank(rootUrl)) {
+            return null;
+        }
+        rootUrl = trimTrailingSlash(rootUrl);
+        String normalizedProtectedPath = normalizePath(protectedResourceMetadata.getPath());
+        if ("/".equals(normalizedProtectedPath)) {
+            return rootUrl + "/" + ProtectedResourceMetadataAction.WELL_KNOWN_PATH;
+        }
+        return rootUrl + "/" + ProtectedResourceMetadataAction.WELL_KNOWN_PATH + normalizedProtectedPath;
+    }
+
+    public boolean isProtectedResource(String requestURI, String contextPath) {
+        return findProtectedResource(requestURI, contextPath) != null;
+    }
+
+    public ProtectedResourceMetadata findProtectedResource(String requestURI, String contextPath) {
+
+        LOG.info("Finding protected resource for request URI '{}' with context path '{}'", requestURI, contextPath);
+
+        String normalizedRequestPath = normalizePath(requestURI);
+        LOG.info("Normalized request path '{}'", normalizedRequestPath);
+        if (isNonBlank(contextPath) && normalizedRequestPath.startsWith(contextPath)) {
+            normalizedRequestPath = normalizePath(normalizedRequestPath.substring(contextPath.length()));
+        }
+        LOG.info("Normalized request path '{}'", normalizedRequestPath);
+        String requestPath = normalizedRequestPath;
+        ProtectedResourceMetadata metadata = getProtectedResources().stream()
+                .filter(this::isMetadataConfigured)
+                .filter(resourceMetadata ->
+                        normalizePath(resourceMetadata.getPath()).equals(requestPath))
+                .findFirst()
+                .orElse(null);
+        if (metadata == null) {
+            LOG.info("No protected resource metadata found for request URI '{}'", requestURI);
+            return null;
+        }
+        LOG.info("Protected resource metadata found for request URI '{}'", requestURI);
+        return metadata;
+    }
+
+    public ProtectedResourceMetadata getProtectedResourceMetadataForWellKnownPath(String wellKnownPath) {
+        String normalizedWellKnownPath = normalizePath(wellKnownPath);
+        return getProtectedResources().stream()
+                .filter(this::isMetadataConfigured)
+                .filter(resourceMetadata ->
+                        normalizePath(resourceMetadata.getPath()).equals(normalizedWellKnownPath))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isMetadataConfigured(ProtectedResourceMetadata metadata) {
+        return metadata != null && isNonBlank(metadata.getPath()) && isNonBlank(metadata.getAuthorizationServer());
+    }
+
+    private static boolean isNonBlank(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private static String trimTrailingSlash(String value) {
+        if (!isNonBlank(value)) {
+            return "";
+        }
+        String trimmedValue = value;
+        while (trimmedValue.endsWith("/") && trimmedValue.length() > 1) {
+            trimmedValue = trimmedValue.substring(0, trimmedValue.length() - 1);
+        }
+        return trimmedValue;
+    }
+
+    private static String normalizePath(String value) {
+        if (!isNonBlank(value)) {
+            return "/";
+        }
+        String normalizedValue = value.trim();
+        if (!normalizedValue.startsWith("/")) {
+            normalizedValue = "/" + normalizedValue;
+        }
+        return trimTrailingSlash(normalizedValue);
     }
 
     @Override

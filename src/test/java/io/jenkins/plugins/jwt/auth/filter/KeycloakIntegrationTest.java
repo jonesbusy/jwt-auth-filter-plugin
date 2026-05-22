@@ -1,6 +1,7 @@
 package io.jenkins.plugins.jwt.auth.filter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.sf.json.JSONObject;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -176,6 +178,75 @@ class KeycloakIntegrationTest {
                 "Realm1 token should be rejected on issuer2's path, got: " + statusCode);
     }
 
+    @Test
+    void shouldAddProtectedResourceChallengeOnlyOnProtectedEndpoint(JenkinsRule jenkinsRule) throws Exception {
+        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/whoAmI/api/json", "/whoAmI/api/json");
+
+        HttpResponse<String> protectedResponse =
+                sendRequestWithResponse(jenkinsRule.getURL() + "whoAmI/api/json", null);
+        HttpResponse<String> unprotectedResponse = sendRequestWithResponse(jenkinsRule.getURL() + "api/json", null);
+
+        String expectedMetadataUrl = trimTrailingSlash(jenkinsRule.getURL().toString())
+                + "/.well-known/oauth-protected-resource/whoAmI/api/json";
+        assertEquals(401, protectedResponse.statusCode(), "Protected endpoint without token should return 401");
+        assertEquals(
+                "Bearer resource_metadata=\"" + expectedMetadataUrl + "\"",
+                protectedResponse.headers().firstValue("WWW-Authenticate").orElse(null),
+                "Protected endpoint should include resource metadata challenge");
+        JSONObject unauthorizedBody = JSONObject.fromObject(protectedResponse.body());
+        assertEquals(
+                "unauthorized", unauthorizedBody.getString("error"), "Error code should match unauthorized response");
+        assertEquals(
+                "Authentication required",
+                unauthorizedBody.getString("error_description"),
+                "Error description should explain authentication requirement");
+        assertFalse(
+                unprotectedResponse.headers().firstValue("WWW-Authenticate").isPresent(),
+                "Unprotected endpoint should not include resource metadata challenge");
+    }
+
+    @Test
+    void shouldReturnProtectedResourceMetadataForProtectedResource(JenkinsRule jenkinsRule) throws Exception {
+        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/whoAmI/api/json", "/whoAmI/api/json");
+
+        HttpResponse<String> metadataResponse = sendRequestWithResponse(
+                jenkinsRule.getURL() + ".well-known/oauth-protected-resource/whoAmI/api/json", null);
+        JSONObject metadata = JSONObject.fromObject(metadataResponse.body());
+
+        assertEquals(200, metadataResponse.statusCode(), "Metadata endpoint should return 200");
+        assertFalse(metadata.containsKey("status"), "Metadata should be returned at top level without status wrapper");
+        String rootUrl = jenkinsRule.jenkins.getRootUrl();
+        assertFalse(metadata.containsKey("data"), "Metadata should be returned at top level without data wrapper");
+        assertEquals(
+                "%swhoAmI/api/json".formatted(rootUrl),
+                metadata.getString("resource"),
+                "Metadata should include protected path as resource");
+        assertEquals(
+                "[\"https://auth.example.com\"]",
+                metadata.getJSONArray("authorization_servers").toString(),
+                "Metadata should include configured authorization server");
+        assertEquals(
+                "[\"openid\",\"profile\",\"email\",\"roles\",\"offline_access\"]",
+                metadata.getJSONArray("scopes_supported").toString(),
+                "Metadata should include configured scopes");
+    }
+
+    @Test
+    void shouldNotAddChallengeOnProtectedEndpointWhenValidBearerTokenIsProvided(JenkinsRule jenkinsRule)
+            throws Exception {
+        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/whoAmI/api/json", "/whoAmI/api/json");
+
+        String token = getAccessToken(REALM_1, CLIENT_ID_1, TEST_USERNAME_1, TEST_PASSWORD_1);
+        HttpResponse<String> response = sendRequestWithResponse(jenkinsRule.getURL() + "whoAmI/api/json", token);
+
+        assertEquals(200, response.statusCode(), "Protected endpoint should return 200 with valid JWT token");
+        assertFalse(
+                response.headers().firstValue("WWW-Authenticate").isPresent(),
+                "Authenticated protected endpoint should not include resource metadata challenge");
+        assertTrue(
+                response.body().contains("\"name\":\"testuser\""), "whoAmI response should contain authenticated user");
+    }
+
     /**
      * Configures Jenkins with a single issuer whose JWKS comes from the given Keycloak realm.
      */
@@ -217,6 +288,22 @@ class KeycloakIntegrationTest {
         jenkinsRule.jenkins.setAuthorizationStrategy(strategy);
     }
 
+    private void configureJenkinsWithProtectedResourceMetadata(
+            JenkinsRule jenkinsRule, String protectedResourcePath, String issuerProtectedPaths) throws Exception {
+        String basePath = jenkinsRule.getURL().getPath().replaceAll("/$", "");
+        String jwksUrl = keycloak.getAuthServerUrl() + "/realms/" + REALM_1 + "/protocol/openid-connect/certs";
+        Issuer issuer = new Issuer(jwksUrl, CLIENT_ID_1, basePath + issuerProtectedPaths);
+
+        ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata(protectedResourcePath);
+        protectedResourceMetadata.setAuthorizationServer("https://auth.example.com");
+        protectedResourceMetadata.setScopesSupportedValue("openid,profile,email,roles,offline_access");
+
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        config.setIssuers(List.of(issuer));
+        config.setProtectedResources(List.of(protectedResourceMetadata));
+        enableSecurityRealm(jenkinsRule);
+    }
+
     /**
      * Obtains a JWT access token from Keycloak via the resource owner password credentials grant.
      */
@@ -249,6 +336,10 @@ class KeycloakIntegrationTest {
      * Returns the HTTP response status code.
      */
     private int sendRequest(String url, String bearerToken) throws Exception {
+        return sendRequestWithResponse(url, bearerToken).statusCode();
+    }
+
+    private HttpResponse<String> sendRequestWithResponse(String url, String bearerToken) throws Exception {
         HttpClient httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
@@ -257,9 +348,7 @@ class KeycloakIntegrationTest {
         if (bearerToken != null) {
             requestBuilder.header("Authorization", "Bearer " + bearerToken);
         }
-        return httpClient
-                .send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
-                .statusCode();
+        return httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     /**
@@ -272,5 +361,9 @@ class KeycloakIntegrationTest {
             return matcher.group(1);
         }
         throw new IllegalStateException("Field '" + fieldName + "' not found in JSON response: " + json);
+    }
+
+    private static String trimTrailingSlash(String url) {
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }
