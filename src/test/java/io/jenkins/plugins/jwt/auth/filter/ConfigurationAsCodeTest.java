@@ -25,10 +25,6 @@ class ConfigurationAsCodeTest {
                 protectedResources.get(0).getAuthorizationServer(),
                 "First protected resource auth server should match");
         assertEquals(
-                "https://resource.example.com/mcp",
-                protectedResources.get(0).getResource(),
-                "First protected resource resource URI should match");
-        assertEquals(
                 List.of("mcp:read", "mcp:write"),
                 protectedResources.get(0).getScopesSupported(),
                 "First protected resource scopes should match");

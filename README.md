@@ -47,7 +47,6 @@ security:
     protectedResources:
       - path: "/mcp"
         authorizationServer: "https://auth.example.com"
-        resource: "https://resource.example.com/mcp"
         scopesSupported:
           - "mcp:read"
           - "mcp:write"
@@ -65,6 +64,10 @@ security:
         emailClaim: "mail"
         groupsClaim: "roles"
 ```
+
+In the Jenkins UI, `Scopes supported` is a comma-separated string (for example:
+`openid,profile,email,roles,offline_access`) and is returned as
+`"scopes_supported":[...]` in the protected resource metadata response.
 
 For manual tests you can use following commands to request a token and use it to access the API:
 

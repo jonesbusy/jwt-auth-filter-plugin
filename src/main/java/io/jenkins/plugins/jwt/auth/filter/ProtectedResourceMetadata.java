@@ -6,6 +6,7 @@ import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -52,9 +53,25 @@ public class ProtectedResourceMetadata extends AbstractDescribableImpl<Protected
         return scopesSupported != null ? new ArrayList<>(scopesSupported) : new ArrayList<>();
     }
 
+    public String getScopesSupportedValue() {
+        return String.join(",", getScopesSupported());
+    }
+
     @DataBoundSetter
     public void setScopesSupported(List<String> scopesSupported) {
         this.scopesSupported = scopesSupported != null ? new ArrayList<>(scopesSupported) : new ArrayList<>();
+    }
+
+    @DataBoundSetter
+    public void setScopesSupportedValue(String scopesSupportedValue) {
+        if (scopesSupportedValue == null || scopesSupportedValue.isBlank()) {
+            this.scopesSupported = new ArrayList<>();
+            return;
+        }
+        this.scopesSupported = List.of(scopesSupportedValue.split(",")).stream()
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     @Extension

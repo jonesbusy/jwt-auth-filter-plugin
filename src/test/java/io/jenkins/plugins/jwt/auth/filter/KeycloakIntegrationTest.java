@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.sf.json.JSONObject;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -198,20 +199,26 @@ class KeycloakIntegrationTest {
 
     @Test
     void shouldReturnProtectedResourceMetadataForProtectedResource(JenkinsRule jenkinsRule) throws Exception {
-        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/", "/whoAmI/api/json");
+        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/whoAmI/api/json", "/whoAmI/api/json");
 
-        HttpResponse<String> metadataResponse =
-                sendRequestWithResponse(jenkinsRule.getURL() + ".well-known/oauth-protected-resource", null);
+        HttpResponse<String> metadataResponse = sendRequestWithResponse(
+                jenkinsRule.getURL() + ".well-known/oauth-protected-resource/whoAmI/api/json", null);
+        JSONObject metadata = JSONObject.fromObject(metadataResponse.body());
 
         assertEquals(200, metadataResponse.statusCode(), "Metadata endpoint should return 200");
-        assertTrue(
-                metadataResponse.body().contains("\"resource\":\"https://resource.example.com/whoami\""),
-                "Metadata should include configured resource URI");
-        assertTrue(
-                metadataResponse.body().contains("\"authorization_servers\":[\"https://auth.example.com\"]"),
+        assertFalse(metadata.containsKey("status"), "Metadata should be returned at top level without status wrapper");
+        assertFalse(metadata.containsKey("data"), "Metadata should be returned at top level without data wrapper");
+        assertEquals(
+                "whoAmI/api/json",
+                metadata.getString("resource"),
+                "Metadata should include protected path as resource");
+        assertEquals(
+                "[\"https://auth.example.com\"]",
+                metadata.getJSONArray("authorization_servers").toString(),
                 "Metadata should include configured authorization server");
-        assertTrue(
-                metadataResponse.body().contains("\"scopes_supported\":[\"whoami:read\",\"whoami:write\"]"),
+        assertEquals(
+                "[\"openid\",\"profile\",\"email\",\"roles\",\"offline_access\"]",
+                metadata.getJSONArray("scopes_supported").toString(),
                 "Metadata should include configured scopes");
     }
 
@@ -280,8 +287,7 @@ class KeycloakIntegrationTest {
 
         ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata(protectedResourcePath);
         protectedResourceMetadata.setAuthorizationServer("https://auth.example.com");
-        protectedResourceMetadata.setResource("https://resource.example.com/whoami");
-        protectedResourceMetadata.setScopesSupported(List.of("whoami:read", "whoami:write"));
+        protectedResourceMetadata.setScopesSupportedValue("openid,profile,email,roles,offline_access");
 
         JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
         config.setIssuers(List.of(issuer));

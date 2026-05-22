@@ -6,7 +6,7 @@
   <f:entry title="Authorization server" field="authorizationServer" description="Authorization server URI for this protected resource">
     <f:textbox />
   </f:entry>
-  <f:entry title="Resource" field="resource" description="Optional resource identifier URI. If empty, Jenkins root URL + path is used.">
+  <f:entry title="Scopes supported" field="scopesSupportedValue" description="Optional comma-separated scopes (for example openid,profile,email,roles,offline_access).">
     <f:textbox />
   </f:entry>
 </j:jelly>

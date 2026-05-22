@@ -140,7 +140,17 @@ class JwtBearerTokenFilterConfigurationTest {
         assertEquals(
                 "https://jenkins.example.com/jenkins/.well-known/oauth-protected-resource/mcp",
                 config.getProtectedResourceMetadataUrl(protectedResource));
-        assertEquals("https://jenkins.example.com/jenkins/mcp", config.getEffectiveResource(protectedResource));
+        assertEquals("mcp", config.getEffectiveResource(protectedResource));
+    }
+
+    @Test
+    void shouldSplitScopesSupportedCommaSeparatedValue() {
+        ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata("/mcp");
+        protectedResourceMetadata.setScopesSupportedValue("openid, profile,email,roles,offline_access");
+
+        assertEquals(
+                List.of("openid", "profile", "email", "roles", "offline_access"),
+                protectedResourceMetadata.getScopesSupported());
     }
 
     @Test

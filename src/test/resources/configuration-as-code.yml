@@ -3,7 +3,6 @@ security:
     protectedResources:
       - path: "/mcp"
         authorizationServer: "https://auth.example.com"
-        resource: "https://resource.example.com/mcp"
         scopesSupported:
           - "mcp:read"
           - "mcp:write"

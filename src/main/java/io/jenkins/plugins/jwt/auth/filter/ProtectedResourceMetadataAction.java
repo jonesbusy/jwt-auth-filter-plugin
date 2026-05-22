@@ -7,6 +7,7 @@ import java.util.List;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.json.JsonHttpResponse;
 
 @Extension
 public class ProtectedResourceMetadataAction implements UnprotectedRootAction {
@@ -70,7 +71,7 @@ public class ProtectedResourceMetadataAction implements UnprotectedRootAction {
 
         String resource = config.getEffectiveResource(protectedResourceMetadata);
         if (resource == null || resource.isBlank()) {
-            return HttpResponses.errorJSON("resource is not configured and Jenkins root URL is unavailable");
+            return HttpResponses.notFound();
         }
 
         String authorizationServer = protectedResourceMetadata.getAuthorizationServer();
@@ -85,6 +86,6 @@ public class ProtectedResourceMetadataAction implements UnprotectedRootAction {
         if (!scopesSupported.isEmpty()) {
             metadata.put("scopes_supported", scopesSupported);
         }
-        return HttpResponses.okJSON(metadata);
+        return new JsonHttpResponse(metadata);
     }
 }

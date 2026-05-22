@@ -84,19 +84,11 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
         if (protectedResourceMetadata == null) {
             return null;
         }
-        if (isNonBlank(protectedResourceMetadata.getResource())) {
-            return trimTrailingSlash(protectedResourceMetadata.getResource().trim());
-        }
-        String rootUrl = Jenkins.get().getRootUrl();
-        if (!isNonBlank(rootUrl)) {
-            return null;
-        }
-        rootUrl = trimTrailingSlash(rootUrl);
         String normalizedProtectedPath = normalizePath(protectedResourceMetadata.getPath());
         if ("/".equals(normalizedProtectedPath)) {
-            return rootUrl;
+            return "/";
         }
-        return rootUrl + normalizedProtectedPath;
+        return normalizedProtectedPath.substring(1);
     }
 
     public String getProtectedResourceMetadataUrl(ProtectedResourceMetadata protectedResourceMetadata) {
