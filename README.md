@@ -39,6 +39,10 @@ This can be adapted, assuming you have a plugin that expose '/mcp' endpoint. You
 
 ![config](docs/config.png)
 
+Protected resources (RFC 9728) are optional (depending if you care about the authorization flow or only validating JWT token and act as a pure resource server)
+
+![config](docs/protected_resource.png)
+
 Or via JCasC
 
 ```yaml
