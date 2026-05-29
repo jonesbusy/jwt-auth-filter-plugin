@@ -118,14 +118,14 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
 
     public ProtectedResourceMetadata findProtectedResource(String requestURI, String contextPath) {
 
-        LOG.info("Finding protected resource for request URI '{}' with context path '{}'", requestURI, contextPath);
+        LOG.trace("Finding protected resource for request URI '{}' with context path '{}'", requestURI, contextPath);
 
         String normalizedRequestPath = normalizePath(requestURI);
-        LOG.info("Normalized request path '{}'", normalizedRequestPath);
+        LOG.trace("Normalized request path '{}'", normalizedRequestPath);
         if (isNonBlank(contextPath) && normalizedRequestPath.startsWith(contextPath)) {
             normalizedRequestPath = normalizePath(normalizedRequestPath.substring(contextPath.length()));
         }
-        LOG.info("Normalized request path '{}'", normalizedRequestPath);
+        LOG.trace("Normalized request path '{}'", normalizedRequestPath);
         String requestPath = normalizedRequestPath;
         ProtectedResourceMetadata metadata = getProtectedResources().stream()
                 .filter(this::isMetadataConfigured)
@@ -134,10 +134,10 @@ public class JwtBearerTokenFilterConfiguration extends GlobalConfiguration {
                 .findFirst()
                 .orElse(null);
         if (metadata == null) {
-            LOG.info("No protected resource metadata found for request URI '{}'", requestURI);
+            LOG.trace("No protected resource metadata found for request URI '{}'", requestURI);
             return null;
         }
-        LOG.info("Protected resource metadata found for request URI '{}'", requestURI);
+        LOG.debug("Protected resource metadata found for request URI '{}'", requestURI);
         return metadata;
     }
 
