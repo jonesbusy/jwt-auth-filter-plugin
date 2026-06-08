@@ -1,5 +1,7 @@
 <div>
     The expected audience value that must be present in the JWT token's "aud" claim for the token to be accepted.
+    This field is optional.
     <p><strong>Security Note:</strong> This prevents JWT tokens intended for other applications from being
-        accepted by Jenkins. Make sure the configured audience is contained on the "aud" claim. If not the token will not be accepted.</p>
+        accepted by Jenkins. If this field is left empty, Jenkins will skip audience validation and accept any token
+        from the configured issuer that passes the other checks.</p>
 </div>

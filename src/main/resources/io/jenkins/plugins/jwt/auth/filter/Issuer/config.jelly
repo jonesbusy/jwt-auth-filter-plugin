@@ -3,7 +3,7 @@
   <f:entry title="JWKS URL" field="jwksUrl" description="URL to the JSON Web Key Set (JWKS) endpoint for JWT token signature verification.">
     <f:textbox checkMethod="post"/>
   </f:entry>
-  <f:entry title="Allowed Audience" field="allowedAudience" description="Expected audience in JWT 'aud' claim.">
+  <f:entry title="Allowed Audience" field="allowedAudience" description="Optional expected audience in JWT 'aud' claim. Leaving it blank skips audience validation.">
     <f:textbox checkMethod="post"/>
   </f:entry>
   <f:entry title="Protected paths" field="protectedPaths" description="Comma separated Ant-style patterns to match protected paths">

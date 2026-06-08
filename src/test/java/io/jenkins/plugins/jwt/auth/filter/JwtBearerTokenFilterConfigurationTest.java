@@ -2,6 +2,9 @@ package io.jenkins.plugins.jwt.auth.filter;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.nimbusds.jwt.JWTClaimsSet;
+import hudson.util.FormValidation;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import jenkins.model.JenkinsLocationConfiguration;
@@ -168,9 +171,54 @@ class JwtBearerTokenFilterConfigurationTest {
                         .getStatusCode());
     }
 
+    @Test
+    void shouldWarnWhenAllowedAudienceIsEmpty(JenkinsRule jenkinsRule) {
+        FormValidation validation = jenkinsRule
+                .jenkins
+                .getDescriptorByType(Issuer.DescriptorImpl.class)
+                .doCheckAllowedAudience("");
+
+        assertEquals(FormValidation.Kind.WARNING, validation.kind);
+        assertEquals(
+                "Allowed audience is empty. Audience validation will be skipped, which is less secure.",
+                validation.getMessage());
+    }
+
+    @Test
+    void shouldAcceptTokenClaimsWhenAudienceIsNotConfigured() throws Exception {
+        JwtBearerTokenFilter filter = new JwtBearerTokenFilter();
+        Issuer issuer = new Issuer("https://example.com/jwks", "", "/api/**");
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                .subject("test-user")
+                .audience("some-other-audience")
+                .build();
+
+        assertTrue(invokeValidateTokenClaims(filter, claimsSet, issuer));
+    }
+
+    @Test
+    void shouldRejectTokenClaimsWhenConfiguredAudienceDoesNotMatch() throws Exception {
+        JwtBearerTokenFilter filter = new JwtBearerTokenFilter();
+        Issuer issuer = new Issuer("https://example.com/jwks", "expected-audience", "/api/**");
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                .subject("test-user")
+                .audience("some-other-audience")
+                .build();
+
+        assertFalse(invokeValidateTokenClaims(filter, claimsSet, issuer));
+    }
+
     private static ProtectedResourceMetadata protectedResource(String path, String authorizationServer) {
         ProtectedResourceMetadata protectedResourceMetadata = new ProtectedResourceMetadata(path);
         protectedResourceMetadata.setAuthorizationServer(authorizationServer);
         return protectedResourceMetadata;
+    }
+
+    private static boolean invokeValidateTokenClaims(JwtBearerTokenFilter filter, JWTClaimsSet claimsSet, Issuer issuer)
+            throws Exception {
+        Method validateTokenClaims =
+                JwtBearerTokenFilter.class.getDeclaredMethod("validateTokenClaims", JWTClaimsSet.class, Issuer.class);
+        validateTokenClaims.setAccessible(true);
+        return (boolean) validateTokenClaims.invoke(filter, claimsSet, issuer);
     }
 }
