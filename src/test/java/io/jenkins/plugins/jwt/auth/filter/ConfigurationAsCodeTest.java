@@ -91,4 +91,42 @@ class ConfigurationAsCodeTest {
         assertNull(issuer2.getEmailClaim(), "Second issuer email claim should be null (use default)");
         assertNull(issuer2.getGroupsClaim(), "Second issuer groups claim should be null (use default)");
     }
+
+    @Test
+    @ConfiguredWithCode("configuration-as-code-optional-audience.yml")
+    void shouldSupportConfigurationAsCodeWhenAllowedAudienceIsMissing(JenkinsConfiguredWithCodeRule jenkinsRule) {
+        JwtBearerTokenFilterConfiguration config = JwtBearerTokenFilterConfiguration.getInstance();
+        assertNotNull(config, "Configuration instance should not be null");
+
+        List<Issuer> issuers = config.getIssuers();
+        assertNotNull(issuers, "Issuers should not be null");
+        assertEquals(2, issuers.size(), "Should have 2 issuers from configuration-as-code-optional-audience.yml");
+
+        Issuer issuer1 = issuers.get(0);
+        assertEquals(
+                "https://keycloak-casc-test.example.com/realms/jenkins/protocol/openid-connect/certs",
+                issuer1.getJwksUrl(),
+                "First issuer JWKS URL should be loaded from configuration-as-code-optional-audience.yml");
+        assertNull(
+                issuer1.getAllowedAudience(),
+                "First issuer allowed audience should be null when omitted in configuration-as-code-optional-audience.yml");
+        assertEquals(
+                "/mcp/**",
+                issuer1.getProtectedPaths(),
+                "First issuer protected paths should be loaded from configuration-as-code-optional-audience.yml");
+
+        Issuer issuer2 = issuers.get(1);
+        assertEquals(
+                "https://keycloak-casc-test.other.com/realms/jenkins/protocol/openid-connect/certs",
+                issuer2.getJwksUrl(),
+                "Second issuer JWKS URL should be loaded from configuration-as-code-optional-audience.yml");
+        assertEquals(
+                "jenkins-casc-test2",
+                issuer2.getAllowedAudience(),
+                "Second issuer allowed audience should be loaded from configuration-as-code-optional-audience.yml");
+        assertEquals(
+                "/**/api/**",
+                issuer2.getProtectedPaths(),
+                "Second issuer protected paths should be loaded from configuration-as-code-optional-audience.yml");
+    }
 }
