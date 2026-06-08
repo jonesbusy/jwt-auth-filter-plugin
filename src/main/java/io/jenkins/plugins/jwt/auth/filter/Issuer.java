@@ -238,7 +238,8 @@ public class Issuer implements Describable<Issuer> {
         public FormValidation doCheckAllowedAudience(@QueryParameter String value) {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value == null || value.trim().isEmpty()) {
-                return FormValidation.error("Allowed audience cannot be empty.");
+                return FormValidation.warning(
+                        "Allowed audience is empty. Audience validation will be skipped, which is less secure.");
             }
             return FormValidation.ok();
         }

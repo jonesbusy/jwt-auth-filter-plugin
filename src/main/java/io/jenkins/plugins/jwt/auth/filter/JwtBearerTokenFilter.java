@@ -347,9 +347,9 @@ public class JwtBearerTokenFilter implements HttpServletFilter {
 
             if (expectedAudience == null || expectedAudience.trim().isEmpty()) {
                 LOG.warn(
-                        "Allowed audience not configured for issuer: {}. Please configure it in Jenkins Global Configuration.",
+                        "Allowed audience not configured for issuer: {}. Audience validation will be skipped; configure an audience in Jenkins Global Configuration to restrict tokens to this resource server.",
                         issuer.getJwksUrl());
-                return false;
+                return true;
             }
 
             List<String> audiences = claimsSet.getAudience();
