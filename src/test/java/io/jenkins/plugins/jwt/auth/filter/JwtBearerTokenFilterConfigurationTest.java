@@ -173,8 +173,10 @@ class JwtBearerTokenFilterConfigurationTest {
 
     @Test
     void shouldWarnWhenAllowedAudienceIsEmpty(JenkinsRule jenkinsRule) {
-        FormValidation validation =
-                jenkinsRule.jenkins.getDescriptorByType(Issuer.DescriptorImpl.class).doCheckAllowedAudience("");
+        FormValidation validation = jenkinsRule
+                .jenkins
+                .getDescriptorByType(Issuer.DescriptorImpl.class)
+                .doCheckAllowedAudience("");
 
         assertEquals(FormValidation.Kind.WARNING, validation.kind);
         assertEquals(
@@ -212,8 +214,8 @@ class JwtBearerTokenFilterConfigurationTest {
         return protectedResourceMetadata;
     }
 
-    private static boolean invokeValidateTokenClaims(
-            JwtBearerTokenFilter filter, JWTClaimsSet claimsSet, Issuer issuer) throws Exception {
+    private static boolean invokeValidateTokenClaims(JwtBearerTokenFilter filter, JWTClaimsSet claimsSet, Issuer issuer)
+            throws Exception {
         Method validateTokenClaims =
                 JwtBearerTokenFilter.class.getDeclaredMethod("validateTokenClaims", JWTClaimsSet.class, Issuer.class);
         validateTokenClaims.setAccessible(true);
