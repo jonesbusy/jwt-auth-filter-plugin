@@ -44,7 +44,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 /**
  * The request filter that validate JWT given as Bearer token
  */
-@Extension
+@Extension(ordinal = 200)
 public class JwtBearerTokenFilter implements HttpServletFilter {
 
     /**

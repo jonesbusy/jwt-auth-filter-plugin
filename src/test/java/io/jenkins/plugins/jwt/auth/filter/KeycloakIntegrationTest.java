@@ -2,8 +2,15 @@ package io.jenkins.plugins.jwt.auth.filter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import hudson.security.FullControlOnceLoggedInAuthorizationStrategy;
 import java.net.URI;
@@ -12,7 +19,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -247,6 +259,49 @@ class KeycloakIntegrationTest {
                 response.body().contains("\"name\":\"testuser\""), "whoAmI response should contain authenticated user");
     }
 
+    @Test
+    void shouldReturn401WithInvalidBearerTokenOnProtectedResource(JenkinsRule jenkinsRule) throws Exception {
+        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/whoAmI/api/json", "/whoAmI/api/json");
+
+        HttpResponse<String> response =
+                sendRequestWithResponse(jenkinsRule.getURL() + "whoAmI/api/json", "not-a-valid-jwt");
+
+        String expectedMetadataUrl = trimTrailingSlash(jenkinsRule.getURL().toString())
+                + "/.well-known/oauth-protected-resource/whoAmI/api/json";
+        assertEquals(401, response.statusCode(), "Protected endpoint with invalid token should return 401");
+        String wwwAuth = response.headers().firstValue("WWW-Authenticate").orElse(null);
+        assertNotNull(wwwAuth, "Should include WWW-Authenticate header");
+        assertTrue(
+                wwwAuth.contains("resource_metadata=\"" + expectedMetadataUrl + "\""),
+                "Should include resource metadata URL");
+        assertTrue(wwwAuth.contains("error=\"invalid_token\""), "Should include invalid_token error code");
+        JSONObject body = JSONObject.fromObject(response.body());
+        assertEquals("invalid_token", body.getString("error"), "Error code should be invalid_token");
+    }
+
+    @Test
+    void shouldReturn401WithExpiredBearerTokenOnProtectedResource(JenkinsRule jenkinsRule) throws Exception {
+        configureJenkinsWithProtectedResourceMetadata(jenkinsRule, "/whoAmI/api/json", "/whoAmI/api/json");
+
+        // Build a structurally valid, correctly-signed JWT whose exp is 1 hour in the past.
+        // No key ID is set so JwtBearerTokenFilter falls back to Keycloak's first JWKS key,
+        // which causes the expiry check (before signature verification) to reject it.
+        String expiredToken = buildExpiredToken(CLIENT_ID_1);
+        HttpResponse<String> response = sendRequestWithResponse(jenkinsRule.getURL() + "whoAmI/api/json", expiredToken);
+
+        String expectedMetadataUrl = trimTrailingSlash(jenkinsRule.getURL().toString())
+                + "/.well-known/oauth-protected-resource/whoAmI/api/json";
+        assertEquals(401, response.statusCode(), "Protected endpoint with expired token should return 401");
+        String wwwAuth = response.headers().firstValue("WWW-Authenticate").orElse(null);
+        assertNotNull(wwwAuth, "Should include WWW-Authenticate header");
+        assertTrue(
+                wwwAuth.contains("resource_metadata=\"" + expectedMetadataUrl + "\""),
+                "Should include resource metadata URL");
+        assertTrue(wwwAuth.contains("error=\"invalid_token\""), "Should include invalid_token error code");
+        JSONObject body = JSONObject.fromObject(response.body());
+        assertEquals("invalid_token", body.getString("error"), "Error code should be invalid_token");
+    }
+
     /**
      * Configures Jenkins with a single issuer whose JWKS comes from the given Keycloak realm.
      */
@@ -361,6 +416,30 @@ class KeycloakIntegrationTest {
             return matcher.group(1);
         }
         throw new IllegalStateException("Field '" + fieldName + "' not found in JSON response: " + json);
+    }
+
+    /**
+     * Builds a structurally valid, self-signed JWT whose {@code exp} claim is 1 hour in the past.
+     * No {@code kid} header is set, so the filter falls back to the first key from the issuer's JWKS.
+     * The expiry check in {@link JwtBearerTokenFilter#verifyJwtSignature} runs before signature
+     * verification, so the token is rejected as expired regardless of the signature mismatch.
+     */
+    private static String buildExpiredToken(String audience) throws Exception {
+        KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
+        gen.initialize(2048);
+        KeyPair pair = gen.generateKeyPair();
+        RSAKey rsaKey = new RSAKey.Builder((RSAPublicKey) pair.getPublic())
+                .privateKey((RSAPrivateKey) pair.getPrivate())
+                .build();
+
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .subject("testuser")
+                .audience(audience)
+                .expirationTime(new Date(System.currentTimeMillis() - 3_600_000))
+                .build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).build(), claims);
+        jwt.sign(new RSASSASigner(rsaKey));
+        return jwt.serialize();
     }
 
     private static String trimTrailingSlash(String url) {
